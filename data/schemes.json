@@ -1,0 +1,93 @@
+[
+  {
+    "scheme_name": "PM-KISAN",
+    "short_description": "Income support for eligible land-holding farmer families.",
+    "target_users": "Land-holding farmer families identified by State Governments and Union Territory administrations.",
+    "eligibility_summary": "The official PM-KISAN page says eligible land-holding farmer families receive support as per scheme guidelines. It also lists exclusion categories such as institutional landholders, higher economic-status public representatives, certain government employees or pensioners, recent income-tax payers, and some registered professionals.",
+    "required_documents": "Needs official verification for the exact current document list. The official portal provides farmer registration, eKYC, status, and update services.",
+    "benefits": "Rs. 6,000 per year in three equal installments, directly transferred to beneficiary bank accounts.",
+    "application_steps": "Use the official PM-KISAN portal. Start with New Farmer Registration or check Know Your Status. Complete required eKYC if applicable.",
+    "official_source_url": "https://pmkisan.gov.in/",
+    "source_domain": "pmkisan.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "farmer agriculture kisan land holding rural income support eKYC"
+  },
+  {
+    "scheme_name": "Pradhan Mantri Mudra Yojana",
+    "short_description": "Loan support for micro and small business activities.",
+    "target_users": "Needs official verification from a detailed .gov.in or .nic.in source before giving user-specific eligibility.",
+    "eligibility_summary": "Needs official verification from a detailed .gov.in or .nic.in source before confirming eligibility.",
+    "required_documents": "Needs official verification from a detailed .gov.in or .nic.in source.",
+    "benefits": "Needs official verification from a detailed .gov.in or .nic.in source.",
+    "application_steps": "Needs official verification from a detailed .gov.in or .nic.in source. Users should apply only through official government guidance or regulated financial institutions.",
+    "official_source_url": "https://www.myscheme.gov.in/schemes/pmmy",
+    "source_domain": "myscheme.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "mudra pmmy business entrepreneur self employment loan micro small enterprise"
+  },
+  {
+    "scheme_name": "National Scholarship Portal",
+    "short_description": "A Government of India portal for scholarship registration, scholarship applications, application status, and payment tracking.",
+    "target_users": "Students applying for scholarships listed on the National Scholarship Portal.",
+    "eligibility_summary": "Eligibility depends on the specific scholarship selected on the portal. The portal provides a Scholarship Eligibility section.",
+    "required_documents": "Needs official verification for each specific scholarship. The portal uses One Time Registration from AY 2024-25 and says OTR is required to apply for scholarships on NSP.",
+    "benefits": "Access to scholarship application and tracking services for schemes available on NSP.",
+    "application_steps": "Visit the official NSP portal, complete One Time Registration if required, choose the relevant scholarship, apply online, and track application/payment status through official links.",
+    "official_source_url": "https://scholarships.gov.in/",
+    "source_domain": "scholarships.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "student scholarship nsp education college school maharashtra income minority disability"
+  },
+  {
+    "scheme_name": "Ayushman Bharat PM-JAY",
+    "short_description": "Health protection scheme information for eligible beneficiaries.",
+    "target_users": "Needs official verification from the PM-JAY portal for the user's current household eligibility.",
+    "eligibility_summary": "Needs official verification from the PM-JAY portal before confirming household eligibility.",
+    "required_documents": "Needs official verification from the PM-JAY portal.",
+    "benefits": "Needs official verification from the PM-JAY portal before stating current benefit limits.",
+    "application_steps": "Use the official PM-JAY portal or authorized government channels to check eligibility and services.",
+    "official_source_url": "https://www.pmjay.gov.in/",
+    "source_domain": "pmjay.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "health hospital ayushman pmjay medical insurance senior citizen family"
+  },
+  {
+    "scheme_name": "Pradhan Mantri Awas Yojana",
+    "short_description": "Housing assistance and affordable housing services under PMAY.",
+    "target_users": "Urban and rural housing beneficiaries, depending on the PMAY component. This record points to the official urban portal.",
+    "eligibility_summary": "Needs official verification for the user's PMAY component, income category, state, and current guidelines.",
+    "required_documents": "Needs official verification from the relevant PMAY portal and state/urban local body.",
+    "benefits": "Housing assistance or housing-related support depending on PMAY component and eligibility.",
+    "application_steps": "For PMAY-Urban, use the official PMAY-U portal and Apply for PMAY-U 2.0 link. Verify local requirements with the relevant authority.",
+    "official_source_url": "https://pmay-urban.gov.in/",
+    "source_domain": "pmay-urban.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "housing house awas urban rural home migrant poor ews lig"
+  },
+  {
+    "scheme_name": "Skill India Digital Hub",
+    "short_description": "Official digital platform for skilling, upskilling, reskilling, career growth, and lifelong learning.",
+    "target_users": "Learners, job seekers, workers, and people looking for skill training.",
+    "eligibility_summary": "Eligibility depends on the course, training programme, or service selected on the official platform.",
+    "required_documents": "Needs official verification for the selected course or programme.",
+    "benefits": "Access to skill training and career-growth services on the official platform.",
+    "application_steps": "Visit the official Skill India Digital portal, choose a relevant course or service, and follow the portal's registration process.",
+    "official_source_url": "https://www.skillindiadigital.gov.in/",
+    "source_domain": "skillindiadigital.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "skill training job employment course upskilling reskilling youth student worker"
+  },
+  {
+    "scheme_name": "CPGRAMS",
+    "short_description": "Centralized Public Grievance Redress and Monitoring System.",
+    "target_users": "Citizens who want to lodge, track, or appeal public grievances with government departments.",
+    "eligibility_summary": "Any user with a public grievance should use the official portal and follow the portal rules. Some grievance types may have separate official channels.",
+    "required_documents": "Needs official verification based on the grievance type. Do not upload unnecessary sensitive documents.",
+    "benefits": "Lodge public grievances, check grievance status, lodge pension grievances, submit reminders or clarifications, and rate grievances.",
+    "application_steps": "Visit the official CPGRAMS portal, choose Lodge Public Grievance or the relevant service, sign in if required, submit the grievance, and track status with the official portal.",
+    "official_source_url": "https://pgportal.gov.in/",
+    "source_domain": "pgportal.gov.in",
+    "last_verified_date": "2026-07-11",
+    "keywords": "grievance complaint cpgrams pension appeal status public grievance department"
+  }
+]

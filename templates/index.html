@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand-lockup">
+        <span class="chakra-mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Official-source civic guidance</p>
+          <h1>GovGuideAI</h1>
+        </div>
+      </div>
+      <nav class="top-actions" aria-label="Account">
+        <a class="nav-link" href="{{ url_for('profiles.profile') }}">Edit Profile</a>
+        <form method="post" action="{{ url_for('auth.logout') }}">
+          <button class="nav-button" type="submit">Logout</button>
+        </form>
+      </nav>
+    </header>
+
+    <main class="app-shell">
+      <aside class="context-panel" aria-label="Profile and trust information">
+        <section class="profile-panel">
+          <div class="section-title-row">
+            <h2>Your Profile</h2>
+            <a class="small-link" href="{{ url_for('profiles.profile') }}">Edit</a>
+          </div>
+          <dl class="profile-list">
+            <div><dt>Name</dt><dd>{{ profile.full_name }}</dd></div>
+            <div><dt>Age</dt><dd>{{ profile.age }}</dd></div>
+            <div><dt>State/UT</dt><dd>{{ profile.state }}</dd></div>
+            <div><dt>District</dt><dd>{{ profile.district }}</dd></div>
+            <div><dt>Occupation</dt><dd>{{ profile.occupation }}</dd></div>
+            <div><dt>Location</dt><dd>{{ profile.location_type }}</dd></div>
+            <div><dt>Language</dt><dd>{{ profile.preferred_language }}</dd></div>
+          </dl>
+        </section>
+
+        <section class="trust-panel">
+          <span class="trust-badge">Official sources only</span>
+          <p>GovGuideAI uses your saved profile only to personalize government-service and scheme guidance.</p>
+          <p class="disclaimer">GovGuideAI provides guidance based on official sources. Final eligibility and approval are decided by the relevant government authority.</p>
+        </section>
+
+        <section class="quick-prompts" aria-label="Example questions">
+          <button type="button" data-prompt="What documents are needed for a new passport application in India?">Passport documents</button>
+          <button type="button" data-prompt="What schemes can help me?">Schemes for me</button>
+          <button type="button" data-prompt="I am a farmer. Which central schemes should I check?">Farmer schemes</button>
+          <button type="button" data-prompt="How can I file a grievance on CPGRAMS?">CPGRAMS help</button>
+          <button type="button" data-prompt="Count the words in this sentence: Government services should be simple.">Word count</button>
+        </section>
+      </aside>
+
+      <section class="chat-panel" aria-label="GovGuideAI chat">
+        <header class="chat-header">
+          <div>
+            <p class="eyebrow">Ask about Indian government services</p>
+            <h2>GovGuideAI Chat</h2>
+          </div>
+          <button class="icon-button" id="clearButton" type="button" aria-label="Clear conversation" title="Clear conversation">
+            <span aria-hidden="true">Clear</span>
+          </button>
+        </header>
+
+        <div class="messages" id="messages" aria-live="polite">
+          <article class="message assistant-message">
+            <div class="avatar" aria-hidden="true">G</div>
+            <div class="bubble">
+              <p>Namaste. I can help with government schemes, documents, services, and grievance portals using your saved profile where helpful.</p>
+            </div>
+          </article>
+        </div>
+
+        <form class="composer" id="chatForm">
+          <label class="sr-only" for="messageInput">Message</label>
+          <textarea
+            id="messageInput"
+            name="message"
+            rows="1"
+            placeholder="Ask about a scheme, document, service, or official portal"
+            autocomplete="off"
+          ></textarea>
+          <button class="send-button" id="sendButton" type="submit" aria-label="Send message" title="Send message">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      window.govGuideUserId = "{{ user.id }}";
+    </script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
+  </body>
+</html>

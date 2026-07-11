@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign up - GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <main class="auth-shell">
+      <section class="auth-card">
+        <div class="brand-lockup">
+          <span class="chakra-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">Official-source civic guidance</p>
+            <h1>GovGuideAI</h1>
+          </div>
+        </div>
+        <p class="privacy-copy">Your profile is used only to personalize government-service and scheme guidance. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
+        {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+        <form class="stacked-form" method="post" action="{{ url_for('auth.signup') }}">
+          <label>Email <input name="email" type="email" required autocomplete="email"></label>
+          <label>Password <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+          <button class="primary-button" type="submit">Create Account</button>
+        </form>
+        <p class="form-footer">Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+  </body>
+</html>

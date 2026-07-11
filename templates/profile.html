@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Edit Profile - GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand-lockup">
+        <span class="chakra-mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Profile</p>
+          <h1>GovGuideAI</h1>
+        </div>
+      </div>
+      <nav class="top-actions" aria-label="Account">
+        <a class="nav-link" href="{{ url_for('index') }}">Back to Chat</a>
+        <form method="post" action="{{ url_for('auth.logout') }}">
+          <button class="nav-button" type="submit">Logout</button>
+        </form>
+      </nav>
+    </header>
+    <main class="profile-shell">
+      <section class="profile-form-card">
+        <h2>View and Edit Profile</h2>
+        <p class="privacy-copy">Profile information is used only for personalized government-service and scheme guidance, not advertising or unrelated analytics.</p>
+        {% if saved %}<p class="notice success">Profile saved.</p>{% endif %}
+        {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+        <form class="profile-form" method="post" action="{{ url_for('profiles.profile_post') }}">
+          {% include "_profile_fields.html" %}
+          <div class="button-row">
+            <button class="primary-button" type="submit">Save Changes</button>
+          </div>
+        </form>
+        <div class="danger-zone">
+          <form method="post" action="{{ url_for('profiles.profile_delete') }}" data-confirm="Delete your saved profile? You will need to complete setup again before chatting.">
+            <button class="danger-button" type="submit">Delete Profile</button>
+          </form>
+          <form method="post" action="{{ url_for('auth.delete_account') }}" data-confirm="Delete your account and profile? This cannot be undone.">
+            <button class="danger-button" type="submit">Delete Account</button>
+          </form>
+        </div>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/profile.js') }}" defer></script>
+  </body>
+</html>

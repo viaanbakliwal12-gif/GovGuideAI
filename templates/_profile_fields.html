@@ -1,0 +1,62 @@
+<div class="form-grid">
+  <label>Full name *
+    <input name="full_name" required value="{{ profile.full_name if profile else profile.get('full_name', '') if profile is mapping else '' }}">
+  </label>
+  <label>Age or date of birth *
+    <input name="age" required value="{{ profile.age if profile else profile.get('age', '') if profile is mapping else '' }}">
+  </label>
+  <label>State or Union Territory *
+    <input name="state" required value="{{ profile.state if profile else profile.get('state', '') if profile is mapping else '' }}">
+  </label>
+  <label>District *
+    <input name="district" required value="{{ profile.district if profile else profile.get('district', '') if profile is mapping else '' }}">
+  </label>
+  <label>Occupation *
+    <input name="occupation" required value="{{ profile.occupation if profile else profile.get('occupation', '') if profile is mapping else '' }}">
+  </label>
+  <label>Rural or urban *
+    <select name="location_type" required>
+      {% set location = profile.location_type if profile and profile.location_type is defined else profile.get('location_type', '') if profile is mapping else '' %}
+      <option value="">Select</option>
+      <option value="Rural" {% if location == "Rural" %}selected{% endif %}>Rural</option>
+      <option value="Urban" {% if location == "Urban" %}selected{% endif %}>Urban</option>
+    </select>
+  </label>
+  <label>Preferred language *
+    <input name="preferred_language" required value="{{ profile.preferred_language if profile else profile.get('preferred_language', '') if profile is mapping else 'English' }}">
+  </label>
+  <label>Gender
+    <input name="gender" value="{{ profile.gender if profile and profile.gender else profile.get('gender', '') if profile is mapping else '' }}">
+  </label>
+  <label>Student status
+    {% set student = profile.student_status if profile and profile.student_status else profile.get('student_status', '') if profile is mapping else '' %}
+    <select name="student_status">
+      <option value="">Not specified</option>
+      <option value="Student" {% if student == "Student" %}selected{% endif %}>Student</option>
+      <option value="Not a student" {% if student == "Not a student" %}selected{% endif %}>Not a student</option>
+    </select>
+  </label>
+  <label>Farmer status
+    {% set farmer = profile.farmer_status if profile and profile.farmer_status else profile.get('farmer_status', '') if profile is mapping else '' %}
+    <select name="farmer_status">
+      <option value="">Not specified</option>
+      <option value="Farmer" {% if farmer == "Farmer" %}selected{% endif %}>Farmer</option>
+      <option value="Not a farmer" {% if farmer == "Not a farmer" %}selected{% endif %}>Not a farmer</option>
+    </select>
+  </label>
+  <label>Annual household income range
+    <input name="annual_household_income_range" value="{{ profile.annual_household_income_range if profile and profile.annual_household_income_range else profile.get('annual_household_income_range', '') if profile is mapping else '' }}">
+  </label>
+  <label>Disability status
+    <input name="disability_status" value="{{ profile.disability_status if profile and profile.disability_status else profile.get('disability_status', '') if profile is mapping else '' }}">
+  </label>
+  <label>Employment status
+    <input name="employment_status" value="{{ profile.employment_status if profile and profile.employment_status else profile.get('employment_status', '') if profile is mapping else '' }}">
+  </label>
+  <label>Marital status
+    <input name="marital_status" value="{{ profile.marital_status if profile and profile.marital_status else profile.get('marital_status', '') if profile is mapping else '' }}">
+  </label>
+  <label>Social category, only if relevant
+    <input name="social_category" value="{{ profile.social_category if profile and profile.social_category else profile.get('social_category', '') if profile is mapping else '' }}">
+  </label>
+</div>
