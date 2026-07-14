@@ -19,14 +19,12 @@ class UserProfile:
     state: str
     district: str
     occupation: str
+    occupation_custom: str | None
     location_type: str
     preferred_language: str
     gender: str | None = None
-    student_status: str | None = None
-    farmer_status: str | None = None
     annual_household_income_range: str | None = None
     disability_status: str | None = None
-    employment_status: str | None = None
     marital_status: str | None = None
     social_category: str | None = None
 
@@ -39,14 +37,12 @@ class UserProfile:
             "state": self.state,
             "district": self.district,
             "occupation": self.occupation,
+            "occupation_custom": self.occupation_custom,
             "location_type": self.location_type,
             "preferred_language": self.preferred_language,
             "gender": self.gender,
-            "student_status": self.student_status,
-            "farmer_status": self.farmer_status,
             "annual_household_income_range": self.annual_household_income_range,
             "disability_status": self.disability_status,
-            "employment_status": self.employment_status,
             "marital_status": self.marital_status,
             "social_category": self.social_category,
         }

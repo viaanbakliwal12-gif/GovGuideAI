@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Choose Language - GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <main class="language-shell">
+      <section class="language-card" aria-labelledby="languageTitle">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <div>
+            <p class="eyebrow" data-i18n="officialEyebrow">Official-source civic guidance</p>
+            <h1>GovGuideAI</h1>
+          </div>
+        </div>
+        <div class="language-intro">
+          <h2 id="languageTitle" data-i18n="chooseLanguage">Choose your language</h2>
+          <p class="privacy-copy" data-i18n="languageChangeNote">You can change this later from the header or profile page.</p>
+        </div>
+        <form id="languageForm" data-next="{{ next_url }}">
+          <div class="language-grid" role="radiogroup" aria-labelledby="languageTitle">
+            <button type="button" role="radio" aria-checked="true" class="language-choice selected" data-language-choice="en">English</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="hi">हिन्दी</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="mr">मराठी</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="bn">বাংলা</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="ta">தமிழ்</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="te">తెలుగు</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="gu">ગુજરાતી</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="kn">ಕನ್ನಡ</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="ml">മലയാളം</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="pa">ਪੰਜਾਬੀ</button>
+            <button type="button" role="radio" aria-checked="false" class="language-choice" data-language-choice="ur">اردو</button>
+          </div>
+          <button class="primary-button" type="submit" data-i18n="continue">Continue</button>
+        </form>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
+  </body>
+</html>

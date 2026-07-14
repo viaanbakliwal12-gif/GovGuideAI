@@ -13,9 +13,10 @@ GovGuideAI stores only basic profile details needed for government-service and s
 - State or Union Territory
 - District
 - Occupation
+- Optional custom occupation text when occupation is `other`
 - Rural or urban location type
 - Preferred language
-- Optional eligibility-related details such as student status, farmer status, income range, disability status, employment status, marital status, gender, and social category
+- Optional eligibility-related details such as income range, disability status, marital status, gender, and social category
 
 ## Not Collected
 
@@ -26,5 +27,13 @@ GovGuideAI stores only basic profile details needed for government-service and s
 - Exact home address
 - Plain-text passwords
 - Identity documents
+- Voiceprints
+- Audio for identification
 
-Profile information is used only to personalize government-service and scheme guidance. It is not used for advertising or unrelated analytics.
+## Voice
+
+Voice recording starts only when the user presses the microphone button. The app shows a visible recording indicator while recording is active.
+
+Recorded audio is sent to the Flask backend for transcription and is not intentionally stored by GovGuideAI. Temporary audio files are deleted after transcription. Generated speech is returned to the browser from memory and is not permanently saved.
+
+Profile information and language choice are used only to personalize government-service and scheme guidance. They are not used for advertising or unrelated analytics.

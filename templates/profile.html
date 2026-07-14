@@ -6,44 +6,68 @@
     <title>Edit Profile - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body>
+  <body data-require-language>
     <header class="site-header">
       <div class="brand-lockup">
-        <span class="chakra-mark" aria-hidden="true"></span>
+        <span class="brand-mark" aria-hidden="true">G</span>
         <div>
-          <p class="eyebrow">Profile</p>
+          <p class="eyebrow" data-i18n="editProfile">Profile</p>
           <h1>GovGuideAI</h1>
         </div>
       </div>
       <nav class="top-actions" aria-label="Account">
-        <a class="nav-link" href="{{ url_for('index') }}">Back to Chat</a>
+        <span class="official-badge" data-i18n="officialSources">Official sources only</span>
+        <label class="language-inline"><span class="sr-only" data-i18n="languageSettings">Language settings</span>
+          <select data-language-select aria-label="Language settings">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी</option>
+            <option value="mr">मराठी</option>
+            <option value="bn">বাংলা</option>
+            <option value="ta">தமிழ்</option>
+            <option value="te">తెలుగు</option>
+            <option value="gu">ગુજરાતી</option>
+            <option value="kn">ಕನ್ನಡ</option>
+            <option value="ml">മലയാളം</option>
+            <option value="pa">ਪੰਜਾਬੀ</option>
+            <option value="ur">اردو</option>
+          </select>
+        </label>
+        <a class="nav-link" href="{{ url_for('index') }}" data-i18n="backToChat">Back to Chat</a>
         <form method="post" action="{{ url_for('auth.logout') }}">
-          <button class="nav-button" type="submit">Logout</button>
+          <button class="nav-button" type="submit" data-i18n="logout">Logout</button>
         </form>
       </nav>
     </header>
     <main class="profile-shell">
       <section class="profile-form-card">
-        <h2>View and Edit Profile</h2>
-        <p class="privacy-copy">Profile information is used only for personalized government-service and scheme guidance, not advertising or unrelated analytics.</p>
-        {% if saved %}<p class="notice success">Profile saved.</p>{% endif %}
+        <div class="page-heading">
+          <p class="eyebrow" data-i18n="editProfile">Edit Profile</p>
+          <h2 data-i18n="viewEditProfile">View and Edit Profile</h2>
+        </div>
+        <p class="privacy-copy" data-i18n="profilePrivacy">Profile information is used only for personalized government-service and scheme guidance, not advertising or unrelated analytics.</p>
+        {% if saved %}<p class="notice success" data-i18n="profileSaved">Profile saved.</p>{% endif %}
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="profile-form" method="post" action="{{ url_for('profiles.profile_post') }}">
           {% include "_profile_fields.html" %}
-          <div class="button-row">
-            <button class="primary-button" type="submit">Save Changes</button>
+          <div class="form-actions">
+            <button class="primary-button" type="submit" data-i18n="saveChanges">Save Changes</button>
           </div>
         </form>
         <div class="danger-zone">
-          <form method="post" action="{{ url_for('profiles.profile_delete') }}" data-confirm="Delete your saved profile? You will need to complete setup again before chatting.">
-            <button class="danger-button" type="submit">Delete Profile</button>
+          <form method="post" action="{{ url_for('profiles.profile_delete') }}" data-confirm-key="deleteProfileConfirm">
+            <button class="danger-button" type="submit" data-i18n="deleteProfile">Delete Profile</button>
           </form>
-          <form method="post" action="{{ url_for('auth.delete_account') }}" data-confirm="Delete your account and profile? This cannot be undone.">
-            <button class="danger-button" type="submit">Delete Account</button>
+          <form method="post" action="{{ url_for('auth.delete_account') }}" data-confirm-key="deleteAccountConfirm">
+            <button class="danger-button" type="submit" data-i18n="deleteAccount">Delete Account</button>
           </form>
         </div>
       </section>
     </main>
+    <script>
+      window.govGuideUserId = "{{ profile.user_id if profile else '' }}";
+      window.govGuideProfileLanguage = "{{ profile.preferred_language if profile else 'en' }}";
+    </script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/profile.js') }}" defer></script>
   </body>
 </html>

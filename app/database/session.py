@@ -38,6 +38,7 @@ def init_db() -> None:
                 state TEXT NOT NULL,
                 district TEXT NOT NULL,
                 occupation TEXT NOT NULL,
+                occupation_custom TEXT,
                 location_type TEXT NOT NULL,
                 preferred_language TEXT NOT NULL,
                 gender TEXT,
@@ -53,3 +54,54 @@ def init_db() -> None:
             );
             """
         )
+        _ensure_column(db, "profiles", "occupation_custom", "TEXT")
+        _migrate_legacy_occupation_values(db)
+
+
+def _ensure_column(
+    db: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_type: str,
+) -> None:
+    columns = db.execute(f"PRAGMA table_info({table_name})").fetchall()
+    if any(column["name"] == column_name for column in columns):
+        return
+
+    db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+
+
+def _migrate_legacy_occupation_values(db: sqlite3.Connection) -> None:
+    """Map old profile statuses to occupation only when occupation is empty."""
+
+    db.execute("UPDATE profiles SET occupation = 'student' WHERE LOWER(TRIM(occupation)) = 'student'")
+    db.execute("UPDATE profiles SET occupation = 'farmer' WHERE LOWER(TRIM(occupation)) = 'farmer'")
+    db.execute("UPDATE profiles SET occupation = 'employed' WHERE LOWER(TRIM(occupation)) IN ('employed', 'employee', 'job')")
+    db.execute("UPDATE profiles SET occupation = 'unemployed' WHERE LOWER(TRIM(occupation)) LIKE '%unemploy%'")
+
+    db.execute(
+        """
+        UPDATE profiles
+        SET occupation = 'student'
+        WHERE TRIM(COALESCE(occupation, '')) = ''
+          AND LOWER(COALESCE(student_status, '')) LIKE '%student%'
+          AND LOWER(COALESCE(student_status, '')) NOT LIKE '%not%'
+        """
+    )
+    db.execute(
+        """
+        UPDATE profiles
+        SET occupation = 'farmer'
+        WHERE TRIM(COALESCE(occupation, '')) = ''
+          AND LOWER(COALESCE(farmer_status, '')) LIKE '%farmer%'
+          AND LOWER(COALESCE(farmer_status, '')) NOT LIKE '%not%'
+        """
+    )
+    db.execute(
+        """
+        UPDATE profiles
+        SET occupation = 'unemployed'
+        WHERE TRIM(COALESCE(occupation, '')) = ''
+          AND LOWER(COALESCE(employment_status, '')) LIKE '%unemploy%'
+        """
+    )

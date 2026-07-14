@@ -5,6 +5,32 @@ from app.database.models import UserProfile
 from app.database.session import get_connection
 
 
+SUPPORTED_LANGUAGES = {
+    "en": "English",
+    "hi": "हिन्दी",
+    "mr": "मराठी",
+    "bn": "বাংলা",
+    "ta": "தமிழ்",
+    "te": "తెలుగు",
+    "gu": "ગુજરાતી",
+    "kn": "ಕನ್ನಡ",
+    "ml": "മലയാളം",
+    "pa": "ਪੰਜਾਬੀ",
+    "ur": "اردو",
+}
+
+OCCUPATION_VALUES = {
+    "student",
+    "farmer",
+    "employed",
+    "self_employed",
+    "business_owner",
+    "unemployed",
+    "retired",
+    "homemaker",
+    "other",
+}
+
 REQUIRED_FIELDS = (
     "full_name",
     "age",
@@ -16,12 +42,10 @@ REQUIRED_FIELDS = (
 )
 
 OPTIONAL_FIELDS = (
+    "occupation_custom",
     "gender",
-    "student_status",
-    "farmer_status",
     "annual_household_income_range",
     "disability_status",
-    "employment_status",
     "marital_status",
     "social_category",
 )
@@ -39,11 +63,22 @@ def validate_profile(data: dict[str, str | None]) -> str | None:
     for field in REQUIRED_FIELDS:
         if not data.get(field):
             return "Please complete all required profile fields."
+
+    if data.get("occupation") not in OCCUPATION_VALUES:
+        return "Please choose a valid occupation."
+
+    if normalize_language(data.get("preferred_language")) != data.get("preferred_language"):
+        return "Please choose a supported language."
+
     return None
 
 
 def save_profile(user_id: int, data: dict[str, str | None]) -> None:
     values = {field: data.get(field) for field in REQUIRED_FIELDS + OPTIONAL_FIELDS}
+    values["preferred_language"] = normalize_language(values.get("preferred_language"))
+    if values["occupation"] != "other":
+        values["occupation_custom"] = None
+
     with get_connection() as db:
         existing = db.execute(
             "SELECT id FROM profiles WHERE user_id = ?",
@@ -56,9 +91,9 @@ def save_profile(user_id: int, data: dict[str, str | None]) -> None:
                 UPDATE profiles SET
                     full_name = ?, age = ?, state = ?, district = ?,
                     occupation = ?, location_type = ?, preferred_language = ?,
-                    gender = ?, student_status = ?, farmer_status = ?,
+                    occupation_custom = ?, gender = ?,
                     annual_household_income_range = ?, disability_status = ?,
-                    employment_status = ?, marital_status = ?, social_category = ?,
+                    marital_status = ?, social_category = ?,
                     updated_date = ?
                 WHERE user_id = ?
                 """,
@@ -70,12 +105,10 @@ def save_profile(user_id: int, data: dict[str, str | None]) -> None:
                     values["occupation"],
                     values["location_type"],
                     values["preferred_language"],
+                    values["occupation_custom"],
                     values["gender"],
-                    values["student_status"],
-                    values["farmer_status"],
                     values["annual_household_income_range"],
                     values["disability_status"],
-                    values["employment_status"],
                     values["marital_status"],
                     values["social_category"],
                     utc_now(),
@@ -87,12 +120,11 @@ def save_profile(user_id: int, data: dict[str, str | None]) -> None:
                 """
                 INSERT INTO profiles (
                     user_id, full_name, age, state, district, occupation,
-                    location_type, preferred_language, gender, student_status,
-                    farmer_status, annual_household_income_range,
-                    disability_status, employment_status, marital_status,
-                    social_category, updated_date
+                    location_type, preferred_language, occupation_custom, gender,
+                    annual_household_income_range, disability_status,
+                    marital_status, social_category, updated_date
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
@@ -103,12 +135,10 @@ def save_profile(user_id: int, data: dict[str, str | None]) -> None:
                     values["occupation"],
                     values["location_type"],
                     values["preferred_language"],
+                    values["occupation_custom"],
                     values["gender"],
-                    values["student_status"],
-                    values["farmer_status"],
                     values["annual_household_income_range"],
                     values["disability_status"],
-                    values["employment_status"],
                     values["marital_status"],
                     values["social_category"],
                     utc_now(),
@@ -133,14 +163,12 @@ def get_profile(user_id: int) -> UserProfile | None:
         state=row["state"],
         district=row["district"],
         occupation=row["occupation"],
+        occupation_custom=row["occupation_custom"],
         location_type=row["location_type"],
-        preferred_language=row["preferred_language"],
+        preferred_language=normalize_language(row["preferred_language"]),
         gender=row["gender"],
-        student_status=row["student_status"],
-        farmer_status=row["farmer_status"],
         annual_household_income_range=row["annual_household_income_range"],
         disability_status=row["disability_status"],
-        employment_status=row["employment_status"],
         marital_status=row["marital_status"],
         social_category=row["social_category"],
     )
@@ -149,3 +177,30 @@ def get_profile(user_id: int) -> UserProfile | None:
 def delete_profile(user_id: int) -> None:
     with get_connection() as db:
         db.execute("DELETE FROM profiles WHERE user_id = ?", (user_id,))
+
+
+def normalize_language(language: str | None) -> str:
+    if not language:
+        return "en"
+
+    value = str(language).strip()
+    if value in SUPPORTED_LANGUAGES:
+        return value
+
+    lower_value = value.lower()
+    name_to_code = {name.lower(): code for code, name in SUPPORTED_LANGUAGES.items()}
+    return name_to_code.get(lower_value, "en")
+
+
+def update_profile_language(user_id: int, language: str | None) -> str:
+    language_code = normalize_language(language)
+    with get_connection() as db:
+        db.execute(
+            """
+            UPDATE profiles
+            SET preferred_language = ?, updated_date = ?
+            WHERE user_id = ?
+            """,
+            (language_code, utc_now(), user_id),
+        )
+    return language_code

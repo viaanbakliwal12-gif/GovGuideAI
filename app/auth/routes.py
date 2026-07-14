@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, redirect, render_template, request, session, url_for
 
 from app.auth.services import authenticate_user, create_user, current_user, delete_user
-from app.profiles.services import get_profile
+from app.profiles.services import get_profile, update_profile_language
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -46,8 +46,12 @@ def login_post():
     session.clear()
     session["user_id"] = user.id
 
-    if get_profile(user.id) is None:
+    profile = get_profile(user.id)
+    if profile is None:
         return redirect(url_for("profiles.setup_profile"))
+    selected_language = request.form.get("selected_language")
+    if selected_language:
+        update_profile_language(user.id, selected_language)
     return redirect(url_for("index"))
 
 

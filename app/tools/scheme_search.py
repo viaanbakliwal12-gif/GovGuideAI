@@ -35,8 +35,6 @@ def search_government_schemes(
     occupation: str | None = None,
     gender: str | None = None,
     annual_income: str | None = None,
-    student_status: str | None = None,
-    farmer_status: str | None = None,
     disability_status: str | None = None,
 ) -> str:
     """Search the local official-source-only schemes dataset."""
@@ -48,8 +46,6 @@ def search_government_schemes(
         occupation,
         gender,
         annual_income,
-        student_status,
-        farmer_status,
         disability_status,
     ]
     terms = {

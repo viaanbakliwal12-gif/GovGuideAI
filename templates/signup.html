@@ -6,26 +6,30 @@
     <title>Sign up - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body>
+  <body data-require-language>
     <main class="auth-shell">
       <section class="auth-card">
         <div class="brand-lockup">
-          <span class="chakra-mark" aria-hidden="true"></span>
+          <span class="brand-mark" aria-hidden="true">G</span>
           <div>
-            <p class="eyebrow">Official-source civic guidance</p>
+            <p class="eyebrow" data-i18n="officialEyebrow">Official-source civic guidance</p>
             <h1>GovGuideAI</h1>
           </div>
         </div>
-        <p class="privacy-copy">Your profile is used only to personalize government-service and scheme guidance. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
+        <div class="auth-intro">
+          <h2 data-i18n="createAccount">Create Account</h2>
+          <p class="privacy-copy" data-i18n="signupPrivacy">Your profile is used only to personalize government-service and scheme guidance. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
+        </div>
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="stacked-form" method="post" action="{{ url_for('auth.signup') }}">
-          <label>Email <input name="email" type="email" required autocomplete="email"></label>
-          <label>Password <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
-          <button class="primary-button" type="submit">Create Account</button>
+          <label><span data-i18n="email">Email</span> <input name="email" type="email" required autocomplete="email"></label>
+          <label><span data-i18n="password">Password</span> <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+          <button class="primary-button" type="submit" data-i18n="createAccount">Create Account</button>
         </form>
-        <p class="form-footer">Already have an account? <a href="{{ url_for('auth.login') }}">Login</a></p>
+        <p class="form-footer"><span data-i18n="alreadyAccount">Already have an account?</span> <a href="{{ url_for('auth.login') }}" data-i18n="login">Login</a></p>
       </section>
     </main>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
   </body>
 </html>

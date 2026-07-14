@@ -1,16 +1,33 @@
 # Data Flow
 
+## Text Chat
+
 1. A visitor opens `/`.
-2. If not logged in, Flask redirects to `/login`.
-3. A new user creates an account at `/signup`.
-4. After login, the app checks whether a profile exists.
-5. If no profile exists, the user completes `/profile/setup`.
-6. The protected chat page loads the saved profile.
-7. The browser sends messages to `/api/chat`.
-8. The backend loads the logged-in user's profile and conversation ID.
-9. The agent receives the user message plus relevant profile details.
-10. The agent may use web search or the local scheme-search tool.
-11. The backend saves the latest OpenAI response ID for conversation memory.
-12. The frontend displays the answer and the tools used.
+2. If no browser language is selected, the frontend sends the user to `/language`.
+3. If not logged in, Flask redirects to `/login`.
+4. A new user creates an account at `/signup`.
+5. After login, the app checks whether a profile exists.
+6. If no profile exists, the user completes `/profile/setup`.
+7. The protected chat page loads the saved profile.
+8. The browser sends `message`, `conversationId`, and `selectedLanguage` to `/api/chat`.
+9. The backend loads the logged-in user's profile and conversation ID.
+10. The existing GovGuideAI agent receives the user message, selected language, and relevant profile details.
+11. The agent may use web search or the local scheme-search tool.
+12. The backend saves the latest OpenAI response ID for conversation memory.
+13. The frontend displays the answer and the tools used.
 
 Conversation memory is isolated by user ID and conversation ID.
+
+## Voice Mode
+
+1. The user presses the microphone button.
+2. The browser asks for microphone permission.
+3. MediaRecorder records browser audio.
+4. The browser sends the temporary audio blob to `/api/voice/transcribe`.
+5. Flask validates the upload, writes a temporary file, calls OpenAI speech-to-text, and deletes the temporary file.
+6. The browser displays the transcript as the user's message.
+7. The transcript is sent through the existing `/api/chat` route.
+8. The normal text answer is displayed.
+9. If voice responses are enabled, the browser calls `/api/voice/speak`.
+10. Flask calls OpenAI text-to-speech and returns playable MP3 audio from memory.
+11. The browser plays, stops, or replays the spoken answer.

@@ -6,24 +6,27 @@
     <title>Profile Setup - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body>
+  <body data-require-language>
     <main class="profile-shell">
       <section class="profile-form-card">
         <div class="brand-lockup">
-          <span class="chakra-mark" aria-hidden="true"></span>
+          <span class="brand-mark" aria-hidden="true">G</span>
           <div>
-            <p class="eyebrow">First-time setup</p>
-            <h1>Create Your Profile</h1>
+            <p class="eyebrow" data-i18n="profileSetup">First-time setup</p>
+            <h1 data-i18n="createProfile">Create Your Profile</h1>
           </div>
         </div>
-        <p class="privacy-copy">This helps GovGuideAI suggest schemes and services without asking you to repeat basic details. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
+        <p class="privacy-copy" data-i18n="profileSetupCopy">This helps GovGuideAI suggest schemes and services without asking you to repeat basic details. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="profile-form" method="post" action="{{ url_for('profiles.setup_profile_post') }}">
           {% include "_profile_fields.html" %}
-          <button class="primary-button" type="submit">Save Profile</button>
+          <div class="form-actions">
+            <button class="primary-button" type="submit" data-i18n="saveProfile">Save Profile</button>
+          </div>
         </form>
       </section>
     </main>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/profile.js') }}" defer></script>
   </body>
 </html>

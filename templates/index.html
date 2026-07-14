@@ -6,20 +6,90 @@
     <title>GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body>
+  <body data-require-language>
+    {% set occupation_prompt_sets = {
+      "student": [
+        ("scholarshipPrompt", "Scholarships for me", "Which government scholarships should I check based on my profile?"),
+        ("studentSchemesPrompt", "Student schemes", "Which government schemes are available for students like me?"),
+        ("educationSupportPrompt", "Education support", "What government education support can I get based on my profile?")
+      ],
+      "farmer": [
+        ("farmerPrompt", "Farmer schemes", "Which government schemes should I check as a farmer?"),
+        ("agricultureSupportPrompt", "Agriculture support", "What government agricultural support is available to me?"),
+        ("cropInsurancePrompt", "Crop insurance help", "What crop insurance and farm assistance should I check?")
+      ],
+      "employed": [
+        ("employeeBenefitsPrompt", "Employee benefits", "Which government benefits should I check as an employed person?"),
+        ("housingSupportPrompt", "Housing support", "Which government housing schemes may fit my profile?"),
+        ("skillDevelopmentPrompt", "Skill development", "What government skill-development support is available to me?")
+      ],
+      "self_employed": [
+        ("selfEmploymentPrompt", "Self-employment schemes", "Which government schemes support self-employed people like me?"),
+        ("businessCreditPrompt", "Business credit support", "Which government business loan or credit schemes should I check?"),
+        ("skillDevelopmentPrompt", "Skill development", "What government skill-development support is available to me?")
+      ],
+      "business_owner": [
+        ("msmeSupportPrompt", "MSME support", "Which MSME support programmes may fit my business profile?"),
+        ("businessSchemesPrompt", "Business schemes", "Which government schemes should I check as a business owner?"),
+        ("businessCreditPrompt", "Business credit support", "Which government business loan or credit schemes should I check?")
+      ],
+      "unemployed": [
+        ("employmentSchemesPrompt", "Employment schemes", "Which government employment schemes should I check based on my profile?"),
+        ("skillDevelopmentPrompt", "Skill development", "What government skill-development support is available to me?"),
+        ("jobSeekerSupportPrompt", "Job seeker support", "What government job seeker support is available to me?")
+      ],
+      "retired": [
+        ("seniorCitizenSchemesPrompt", "Senior citizen schemes", "Which senior citizen schemes should I check based on my profile?"),
+        ("pensionSupportPrompt", "Pension support", "What government pension support may be available to me?"),
+        ("healthcareSupportPrompt", "Healthcare support", "Which government healthcare schemes may fit my profile?")
+      ],
+      "homemaker": [
+        ("familySupportPrompt", "Family support", "Which government family support schemes should I check?"),
+        ("womenSchemesPrompt", "Women-focused schemes", "Which government schemes for women may fit my profile?"),
+        ("healthcareSupportPrompt", "Healthcare support", "Which government healthcare schemes may fit my profile?")
+      ],
+      "other": [
+        ("schemePrompt", "Schemes for me", "Which government schemes should I check based on my profile?"),
+        ("profileBenefitsPrompt", "Benefits for my profile", "Which government benefits may fit my saved profile?"),
+        ("occupationSupportPrompt", "Occupation support", "What government support is available for someone in my occupation?")
+      ]
+    } %}
+    {% set personalized_prompts = occupation_prompt_sets.get(profile.occupation, occupation_prompt_sets["other"]) %}
+    {% macro prompt_button(prompt) -%}
+      <button type="button" data-prompt="{{ prompt[2] }}" data-i18n="{{ prompt[0] }}">{{ prompt[1] }}</button>
+    {%- endmacro %}
+
     <header class="site-header">
       <div class="brand-lockup">
-        <span class="chakra-mark" aria-hidden="true"></span>
+        <span class="brand-mark" aria-hidden="true">G</span>
         <div>
-          <p class="eyebrow">Official-source civic guidance</p>
+          <p class="eyebrow" data-i18n="officialEyebrow">Official-source civic guidance</p>
           <h1>GovGuideAI</h1>
         </div>
       </div>
       <nav class="top-actions" aria-label="Account">
-        <a class="nav-link" href="{{ url_for('profiles.profile') }}">Edit Profile</a>
-        <form method="post" action="{{ url_for('auth.logout') }}">
-          <button class="nav-button" type="submit">Logout</button>
-        </form>
+        <span class="official-badge" data-i18n="officialSources">Official sources only</span>
+        <div class="account-controls">
+          <label class="language-inline"><span class="sr-only" data-i18n="languageSettings">Language settings</span>
+          <select data-language-select aria-label="Language settings">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी</option>
+            <option value="mr">मराठी</option>
+            <option value="bn">বাংলা</option>
+            <option value="ta">தமிழ்</option>
+            <option value="te">తెలుగు</option>
+            <option value="gu">ગુજરાતી</option>
+            <option value="kn">ಕನ್ನಡ</option>
+            <option value="ml">മലയാളം</option>
+            <option value="pa">ਪੰਜਾਬੀ</option>
+            <option value="ur">اردو</option>
+          </select>
+          </label>
+          <a class="nav-link" href="{{ url_for('profiles.profile') }}" data-i18n="editProfile">Edit Profile</a>
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            <button class="nav-button" type="submit" data-i18n="logout">Logout</button>
+          </form>
+        </div>
       </nav>
     </header>
 
@@ -27,72 +97,107 @@
       <aside class="context-panel" aria-label="Profile and trust information">
         <section class="profile-panel">
           <div class="section-title-row">
-            <h2>Your Profile</h2>
-            <a class="small-link" href="{{ url_for('profiles.profile') }}">Edit</a>
+            <h2 data-i18n="yourProfile">Your Profile</h2>
+            <a class="small-link" href="{{ url_for('profiles.profile') }}" data-i18n="edit">Edit</a>
           </div>
           <dl class="profile-list">
-            <div><dt>Name</dt><dd>{{ profile.full_name }}</dd></div>
-            <div><dt>Age</dt><dd>{{ profile.age }}</dd></div>
-            <div><dt>State/UT</dt><dd>{{ profile.state }}</dd></div>
-            <div><dt>District</dt><dd>{{ profile.district }}</dd></div>
-            <div><dt>Occupation</dt><dd>{{ profile.occupation }}</dd></div>
-            <div><dt>Location</dt><dd>{{ profile.location_type }}</dd></div>
-            <div><dt>Language</dt><dd>{{ profile.preferred_language }}</dd></div>
+            <div><dt data-i18n="name">Name</dt><dd>{{ profile.full_name }}</dd></div>
+            <div><dt data-i18n="state">State/UT</dt><dd>{{ profile.state }}</dd></div>
+            <div><dt data-i18n="occupation">Occupation</dt><dd data-occupation-value="{{ profile.occupation }}">{{ profile.occupation }}</dd></div>
+            <div><dt data-i18n="age">Age</dt><dd>{{ profile.age }}</dd></div>
+            <div><dt data-i18n="language">Language</dt><dd data-language-name>{{ profile.preferred_language }}</dd></div>
           </dl>
         </section>
 
         <section class="trust-panel">
-          <span class="trust-badge">Official sources only</span>
-          <p>GovGuideAI uses your saved profile only to personalize government-service and scheme guidance.</p>
-          <p class="disclaimer">GovGuideAI provides guidance based on official sources. Final eligibility and approval are decided by the relevant government authority.</p>
+          <span class="trust-badge" data-i18n="officialSources">Official sources only</span>
+          <p data-i18n="trustCopy">GovGuideAI uses your saved profile only to personalize government-service and scheme guidance.</p>
+          <p class="disclaimer" data-i18n="disclaimer">GovGuideAI provides guidance based on official sources. Final eligibility and approval are decided by the relevant government authority.</p>
         </section>
 
         <section class="quick-prompts" aria-label="Example questions">
-          <button type="button" data-prompt="What documents are needed for a new passport application in India?">Passport documents</button>
-          <button type="button" data-prompt="What schemes can help me?">Schemes for me</button>
-          <button type="button" data-prompt="I am a farmer. Which central schemes should I check?">Farmer schemes</button>
-          <button type="button" data-prompt="How can I file a grievance on CPGRAMS?">CPGRAMS help</button>
-          <button type="button" data-prompt="Count the words in this sentence: Government services should be simple.">Word count</button>
+          <h2 data-i18n="suggestedPrompts">Example questions</h2>
+          <button type="button" data-prompt="What documents are needed for a new passport application in India?" data-i18n="passportPrompt">Passport documents</button>
+          {% for prompt in personalized_prompts %}{{ prompt_button(prompt) }}{% endfor %}
+          <button type="button" data-prompt="How can I file a grievance on CPGRAMS?" data-i18n="grievancePrompt">CPGRAMS help</button>
         </section>
       </aside>
 
       <section class="chat-panel" aria-label="GovGuideAI chat">
         <header class="chat-header">
           <div>
-            <p class="eyebrow">Ask about Indian government services</p>
-            <h2>GovGuideAI Chat</h2>
+            <p class="eyebrow" data-i18n="askEyebrow">Ask about Indian government services</p>
+            <h2 data-i18n="chatTitle">GovGuideAI Chat</h2>
           </div>
-          <button class="icon-button" id="clearButton" type="button" aria-label="Clear conversation" title="Clear conversation">
-            <span aria-hidden="true">Clear</span>
+          <button class="secondary-button" id="clearButton" type="button" data-i18n-title="clearConversation" aria-label="Clear conversation" title="Clear conversation">
+            <span aria-hidden="true" data-i18n="clearConversation">Clear conversation</span>
           </button>
         </header>
 
         <div class="messages" id="messages" aria-live="polite">
-          <article class="message assistant-message">
-            <div class="avatar" aria-hidden="true">G</div>
-            <div class="bubble">
-              <p>Namaste. I can help with government schemes, documents, services, and grievance portals using your saved profile where helpful.</p>
+          <section class="chat-empty-state" id="chatEmptyState" aria-label="Conversation start">
+            <div class="empty-state-copy">
+              <p class="eyebrow" data-i18n="officialSources">Official sources only</p>
+              <h3 data-i18n="greeting">Welcome to GovGuideAI. How can I help you today?</h3>
+              <p data-i18n="emptyStateProfileNote">Answers use your saved profile when it helps personalize scheme and service guidance.</p>
             </div>
-          </article>
+            <div class="empty-prompt-grid" aria-label="Suggested prompts">
+              <button type="button" data-prompt="What documents are needed for a new passport application in India?" data-i18n="passportPrompt">Passport documents</button>
+              {% for prompt in personalized_prompts %}{{ prompt_button(prompt) }}{% endfor %}
+              <button type="button" data-prompt="How can I file a grievance on CPGRAMS?" data-i18n="grievancePrompt">CPGRAMS help</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="chat-status" id="chatStatus" aria-live="polite" hidden>
+          <span class="status-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span id="chatStatusText" data-i18n="thinking">Thinking...</span>
         </div>
 
         <form class="composer" id="chatForm">
-          <label class="sr-only" for="messageInput">Message</label>
-          <textarea
-            id="messageInput"
-            name="message"
-            rows="1"
-            placeholder="Ask about a scheme, document, service, or official portal"
-            autocomplete="off"
-          ></textarea>
-          <button class="send-button" id="sendButton" type="submit" aria-label="Send message" title="Send message">Send</button>
+          <div class="composer-voice-status" id="voiceComposerStatus" aria-live="polite" hidden>
+            <span class="recording-dot" aria-hidden="true"></span>
+            <span id="voiceStatusText"></span>
+            <span class="recording-timer" id="recordingTimer" hidden></span>
+          </div>
+          <div class="composer-input-row">
+            <label class="sr-only" for="messageInput" data-i18n="message">Message</label>
+            <textarea
+              id="messageInput"
+              name="message"
+              rows="1"
+              data-i18n-placeholder="messagePlaceholder"
+              placeholder="Ask about a scheme, document, service, or official portal"
+              autocomplete="off"
+            ></textarea>
+            <button
+              class="mic-button"
+              id="micButton"
+              type="button"
+              data-i18n-title="startRecording"
+              aria-label="Start recording"
+              aria-describedby="voicePrivacyNote voiceComposerStatus"
+              title="Start recording"
+            >
+              <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 14.25a3.5 3.5 0 0 0 3.5-3.5V6.5a3.5 3.5 0 1 0-7 0v4.25a3.5 3.5 0 0 0 3.5 3.5Z"></path>
+                <path d="M5.75 10.5v.25a6.25 6.25 0 0 0 12.5 0v-.25M12 17v3.25M8.75 20.25h6.5"></path>
+              </svg>
+            </button>
+            <button class="send-button" id="sendButton" type="submit" data-i18n="send" aria-label="Send message" title="Send message">Send</button>
+          </div>
+          <p class="composer-privacy" id="voicePrivacyNote" data-i18n="privacyNotice">Audio is sent securely for transcription and is not intentionally stored by GovGuideAI.</p>
         </form>
       </section>
     </main>
 
     <script>
       window.govGuideUserId = "{{ user.id }}";
+      window.govGuideProfileLanguage = "{{ profile.preferred_language }}";
+      window.govGuideUserName = "{{ profile.full_name }}";
     </script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/voice.js') }}" defer></script>
   </body>
 </html>

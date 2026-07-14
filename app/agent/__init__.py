@@ -1,4 +1,4 @@
 from app.agent.government_agent import GovernmentHelpAgent
-from app.agent.models import AgentResponse
+from app.agent.models import AgentActivity, AgentResponse
 
-__all__ = ["AgentResponse", "GovernmentHelpAgent"]
+__all__ = ["AgentActivity", "AgentResponse", "GovernmentHelpAgent"]

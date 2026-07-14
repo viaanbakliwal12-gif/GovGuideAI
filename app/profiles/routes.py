@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from app.auth.services import current_user, login_required
 from app.profiles.services import (
@@ -8,6 +8,7 @@ from app.profiles.services import (
     get_profile,
     profile_from_form,
     save_profile,
+    update_profile_language,
     validate_profile,
 )
 
@@ -59,6 +60,15 @@ def profile_post():
         return render_template("profile.html", profile=data, error=error, saved=False), 400
     save_profile(user.id, data)
     return redirect(url_for("profiles.profile", saved="1"))
+
+
+@profiles_bp.post("/api/profile/language")
+@login_required
+def profile_language():
+    user = current_user()
+    payload = request.get_json(silent=True) or {}
+    language = update_profile_language(user.id, payload.get("language"))
+    return jsonify({"language": language})
 
 
 @profiles_bp.post("/profile/delete")
