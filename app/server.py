@@ -40,17 +40,27 @@ def get_agent() -> GovernmentHelpAgent:
 
 def create_app() -> Flask:
     load_dotenv()
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError(
+            "SECRET_KEY was not found. Add it to your .env file or deployment environment."
+        )
+
     app = Flask(
         __name__,
         template_folder="../templates",
         static_folder="../static",
     )
-    app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "dev-only-change-this-secret")
+    app.config["SECRET_KEY"] = secret_key
 
     init_db()
     app.register_blueprint(auth_bp)
     app.register_blueprint(profiles_bp)
     app.register_blueprint(voice_bp)
+
+    @app.get("/health")
+    def health():
+        return jsonify({"status": "ok"})
 
     @app.get("/language")
     def language_select():

@@ -39,10 +39,14 @@ Create a `.env` file with:
 
 ```text
 OPENAI_API_KEY=your_openai_api_key_here
-FLASK_SECRET_KEY=change-this-for-local-use
+SECRET_KEY=replace-with-a-long-random-value
 ```
 
 Never put the OpenAI API key in HTML or JavaScript.
+
+For Render, use `pip install -r requirements.txt` as the build command and
+`gunicorn main:app --bind 0.0.0.0:$PORT` as the start command. Configure
+`OPENAI_API_KEY` and `SECRET_KEY` in the Render environment.
 
 ## Project Structure
 
