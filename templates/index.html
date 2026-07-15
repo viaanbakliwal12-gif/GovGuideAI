@@ -7,7 +7,7 @@
     <title>GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body data-require-language>
+  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}">
     {% set occupation_prompt_sets = {
       "student": [
         ("scholarshipPrompt", "Scholarships for me", "Which government scholarships should I check based on my profile?"),
@@ -235,7 +235,7 @@
       window.govGuideUserName = "{{ profile.full_name if profile else '' }}";
       window.govGuideIsGuest = {{ is_guest|tojson }};
     </script>
-    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-language-fix') }}" defer></script>
     <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/voice.js') }}" defer></script>

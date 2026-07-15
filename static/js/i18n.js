@@ -462,7 +462,11 @@ Object.entries(authAndGuestTranslations).forEach(([code, values]) => {
 });
 
 function getStoredLanguage() {
-  return window.localStorage.getItem("govguideaiLanguage") || "";
+  try {
+    return window.localStorage.getItem("govguideaiLanguage") || "";
+  } catch {
+    return "";
+  }
 }
 
 function getLanguage() {
@@ -470,14 +474,22 @@ function getLanguage() {
   if (translations[stored]) {
     return stored;
   }
+  const sessionLanguage = document.body?.dataset.selectedLanguage;
+  if (translations[sessionLanguage]) {
+    return sessionLanguage;
+  }
   const profileLanguage = window.govGuideProfileLanguage;
   return translations[profileLanguage] ? profileLanguage : "en";
 }
 
 function setLanguage(language) {
   const code = translations[language] ? language : "en";
-  window.localStorage.setItem("govguideaiLanguage", code);
-  window.localStorage.setItem("govguideaiLanguageSelected", "1");
+  try {
+    window.localStorage.setItem("govguideaiLanguage", code);
+    window.localStorage.setItem("govguideaiLanguageSelected", "1");
+  } catch {
+    // The server-backed form/session remains authoritative when storage is unavailable.
+  }
   applyTranslations();
   window.dispatchEvent(new CustomEvent("govguideai:languagechange", { detail: { language: code } }));
   return code;
@@ -522,8 +534,15 @@ function ensureLanguageBeforePage() {
   if (!document.body.matches("[data-require-language]")) {
     return;
   }
-  if (window.localStorage.getItem("govguideaiLanguageSelected") === "1") {
+  if (document.body.dataset.languageSelected === "true") {
     return;
+  }
+  try {
+    if (window.localStorage.getItem("govguideaiLanguageSelected") === "1") {
+      return;
+    }
+  } catch {
+    // Continue to the language screen; its POST works without browser storage.
   }
   const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
   window.location.replace(`/language?next=${next}`);
@@ -572,11 +591,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const languageForm = document.querySelector("#languageForm");
   if (languageForm) {
-    languageForm.addEventListener("submit", (event) => {
-      event.preventDefault();
+    languageForm.addEventListener("submit", () => {
       const language = getLanguage();
+      const selectedInput = languageForm.querySelector("input[name='selected_language']");
+      if (selectedInput) selectedInput.value = language;
       saveLanguageToProfile(language);
-      window.location.href = languageForm.dataset.next || "/login";
     });
   }
 });

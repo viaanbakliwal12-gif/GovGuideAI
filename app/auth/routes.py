@@ -73,6 +73,8 @@ def login_post():
 
     establish_user_session(user)
     selected_language = request.form.get("selected_language")
+    session["language_selected"] = True
+    session["selected_language"] = normalize_language(selected_language)
     profile = get_profile(user.id)
     if profile is None:
         return redirect(url_for("profiles.setup_profile"))
@@ -178,6 +180,8 @@ def verification_post():
 
     selected_language = session.get("pending_auth_language")
     establish_user_session(result.user)
+    session["language_selected"] = True
+    session["selected_language"] = normalize_language(selected_language)
     profile = get_profile(result.user.id)
     if profile is not None and selected_language:
         update_profile_language(result.user.id, str(selected_language))
@@ -231,8 +235,13 @@ def continue_as_guest():
 
 @auth_bp.post("/logout")
 def logout():
+    selected_language = normalize_language(
+        session.get("selected_language") or session.get("guest_language")
+    )
     end_guest_session()
     session.clear()
+    session["language_selected"] = True
+    session["selected_language"] = selected_language
     return redirect(url_for("auth.login"))
 
 

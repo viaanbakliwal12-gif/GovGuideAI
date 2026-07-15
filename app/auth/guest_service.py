@@ -41,6 +41,8 @@ def start_guest_session(language: str = "en") -> CurrentGuest:
     session.clear()
     session["guest_token"] = token
     session["guest_language"] = language
+    session["language_selected"] = True
+    session["selected_language"] = language
     session.permanent = False
 
     with get_connection() as db:

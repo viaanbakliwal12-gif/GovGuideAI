@@ -70,6 +70,16 @@ class FrontendContractTests(unittest.TestCase):
             source = (ROOT / relative_path).read_text(encoding="utf-8")
             self.assertIn("X-CSRF-Token", source)
 
+    def test_language_form_has_a_server_backed_non_looping_fallback(self) -> None:
+        template = (ROOT / "templates" / "language_select.html").read_text(encoding="utf-8")
+        script = (ROOT / "static" / "js" / "i18n.js").read_text(encoding="utf-8")
+
+        self.assertIn('method="post"', template)
+        self.assertIn('name="selected_language"', template)
+        self.assertIn('name="next"', template)
+        self.assertIn("document.body.dataset.languageSelected", script)
+        self.assertNotIn("event.preventDefault();\n      const language = getLanguage();", script)
+
 
 if __name__ == "__main__":
     unittest.main()

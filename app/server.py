@@ -78,10 +78,15 @@ def create_app() -> Flask:
 
     @app.get("/language")
     def language_select():
-        next_url = request.args.get("next", "/login")
-        if not next_url.startswith("/"):
-            next_url = "/login"
+        next_url = _safe_local_next_url(request.args.get("next"))
         return render_template("language_select.html", next_url=next_url)
+
+    @app.post("/language")
+    def language_select_post():
+        selected_language = normalize_language(request.form.get("selected_language"))
+        session["language_selected"] = True
+        session["selected_language"] = selected_language
+        return redirect(_safe_local_next_url(request.form.get("next")))
 
     @app.get("/")
     @assistant_access_required
@@ -281,6 +286,13 @@ def create_app() -> Flask:
         return jsonify({"ok": True})
 
     return app
+
+
+def _safe_local_next_url(value: str | None) -> str:
+    next_url = str(value or "/login").strip()
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        return "/login"
+    return next_url
 
 
 def _ndjson_event(payload: dict) -> str:

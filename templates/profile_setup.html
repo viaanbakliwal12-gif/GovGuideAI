@@ -7,7 +7,7 @@
     <title>Profile Setup - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body data-require-language>
+  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}">
     <main class="profile-shell">
       <section class="profile-form-card">
         <div class="brand-lockup">
@@ -28,7 +28,7 @@
         </form>
       </section>
     </main>
-    <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-language-fix') }}" defer></script>
     <script src="{{ url_for('static', filename='js/profile.js') }}" defer></script>
   </body>
 </html>

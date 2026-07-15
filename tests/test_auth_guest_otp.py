@@ -95,6 +95,34 @@ class AuthFlowTestCase(unittest.TestCase):
         )
 
 
+class LanguageSelectionTests(AuthFlowTestCase):
+    def test_language_selection_is_saved_server_side_and_redirects_once(self) -> None:
+        response = self.client.post(
+            "/language",
+            data={"selected_language": "hi", "next": "/login"},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/login")
+        with self.client.session_transaction() as browser_session:
+            self.assertTrue(browser_session["language_selected"])
+            self.assertEqual(browser_session["selected_language"], "hi")
+
+        login_page = self.client.get("/login").get_data(as_text=True)
+        self.assertIn('data-language-selected="true"', login_page)
+        self.assertIn('data-selected-language="hi"', login_page)
+
+    def test_language_next_url_cannot_leave_the_application(self) -> None:
+        response = self.client.post(
+            "/language",
+            data={"selected_language": "en", "next": "//example.com/escape"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/login")
+
+
 class GuestModeTests(AuthFlowTestCase):
     def test_guest_reaches_chat_without_creating_user_and_sees_limitations(self) -> None:
         response = self.client.post(
