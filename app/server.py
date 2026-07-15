@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 from functools import lru_cache
 import json
+import logging
 import os
 import re
 from uuid import uuid4
@@ -21,8 +22,9 @@ from flask import (
 )
 
 from app.agent import AgentActivity, AgentResponse, GovernmentHelpAgent
+from app.admin import admin_bp
 from app.auth import auth_bp
-from app.auth.otp_service import development_test_mode_enabled
+from app.auth.otp_service import otp_configuration_status
 from app.auth.services import (
     assistant_access_required,
     current_subject_key,
@@ -60,15 +62,29 @@ def create_app() -> Flask:
         static_folder="../static",
     )
     app.config["SECRET_KEY"] = secret_key
+    app.logger.setLevel(logging.INFO)
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
     app.config["SESSION_COOKIE_SECURE"] = os.getenv(
         "APP_ENV", os.getenv("FLASK_ENV", "development")
     ).strip().lower() in {"production", "prod"}
     init_security(app)
-    development_test_mode_enabled()
+    otp_status = otp_configuration_status()
+    app.logger.info(
+        "Email OTP provider: %s",
+        "configured" if otp_status.email_configured else "not configured",
+    )
+    app.logger.info(
+        "SMS OTP provider: %s",
+        "configured" if otp_status.sms_configured else "not configured",
+    )
+    app.logger.info(
+        "Development OTP mode: %s",
+        "enabled" if otp_status.development_mode else "disabled",
+    )
 
     init_db()
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(profiles_bp)
     app.register_blueprint(voice_bp)
 
@@ -148,7 +164,7 @@ def create_app() -> Flask:
             agent_response = get_agent().respond(
                 user_message=message,
                 previous_response_id=previous_response_id,
-                profile=(profile.to_agent_context() if profile else None),
+                profile=(profile.to_agent_context(message) if profile else None),
                 selected_language=selected_language,
             )
         except Exception:
@@ -202,7 +218,7 @@ def create_app() -> Flask:
             subject_key,
             conversation_id,
         )
-        profile_context = profile.to_agent_context() if profile else {}
+        profile_context = profile.to_agent_context(message) if profile else {}
 
         def generate():
             yield _ndjson_event({"type": "status", "status": "thinking"})

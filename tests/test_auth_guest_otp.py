@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from io import StringIO
+import logging
 import os
 from pathlib import Path
 import re
@@ -10,7 +12,8 @@ from unittest.mock import patch
 
 from werkzeug.security import generate_password_hash
 
-from app.auth.sms_provider import SMSDeliveryError
+from app.auth.email_provider import EmailDeliveryError, EmailDeliveryResult
+from app.auth.sms_provider import SMSDeliveryError, SMSDeliveryResult
 from app.auth.validators import IdentifierValidationError, normalize_phone_number
 from app.database.session import get_connection
 from app.server import create_app
@@ -31,8 +34,9 @@ class AuthFlowTestCase(unittest.TestCase):
             {
                 "SECRET_KEY": "test-secret-key",
                 "OTP_PEPPER": "test-otp-pepper",
-                "OTP_TEST_MODE": "true",
-                "APP_ENV": "testing",
+                "OTP_DEVELOPMENT_MODE": "true",
+                "FLASK_ENV": "development",
+                "APP_ENV": "development",
                 "OTP_RESEND_COOLDOWN_SECONDS": "60",
                 "OTP_EXPIRY_MINUTES": "10",
                 "OTP_MAX_ATTEMPTS": "5",
@@ -242,10 +246,35 @@ class EmailOTPTests(AuthFlowTestCase):
         self.assertEqual(cooldown.status_code, 429)
         self.assertIn("Please wait", cooldown.get_data(as_text=True))
 
-        with patch.dict(os.environ, {"OTP_TEST_MODE": "false", "EMAIL_PROVIDER": ""}, clear=False):
+        with patch.dict(
+            os.environ,
+            {"OTP_DEVELOPMENT_MODE": "false", "EMAIL_PROVIDER": ""},
+            clear=False,
+        ):
             failure = self.request_email_code("other@example.com")
+        self.assertEqual(failure.status_code, 503)
+        self.assertIn("temporarily unavailable", failure.get_data(as_text=True))
+
+    def test_email_provider_failure_is_generic_and_safely_logged(self) -> None:
+        provider_settings = {
+            "OTP_DEVELOPMENT_MODE": "false",
+            "EMAIL_PROVIDER": "resend",
+            "RESEND_API_KEY": "test-provider-key",
+            "EMAIL_FROM_ADDRESS": "verified-sender@example.com",
+        }
+        with patch.dict(os.environ, provider_settings, clear=False):
+            with patch(
+                "app.auth.otp_service.send_email_otp",
+                side_effect=EmailDeliveryError("safe provider failure", "delivery_rejected"),
+            ):
+                with self.assertLogs(self.app.logger, level="ERROR") as logs:
+                    failure = self.request_email_code("private.person@example.com")
         self.assertEqual(failure.status_code, 502)
-        self.assertIn("could not send a verification code", failure.get_data(as_text=True))
+        self.assertIn("could not send the code right now", failure.get_data(as_text=True))
+        combined = "\n".join(logs.output)
+        self.assertIn("p***@example.com", combined)
+        self.assertNotIn("private.person@example.com", combined)
+        self.assertNotIn("test-provider-key", combined)
 
     def test_resend_after_cooldown_replaces_the_old_challenge(self) -> None:
         self.request_email_code()
@@ -279,11 +308,68 @@ class EmailOTPTests(AuthFlowTestCase):
     def test_production_cannot_enable_development_codes(self) -> None:
         with patch.dict(
             os.environ,
-            {"APP_ENV": "production", "OTP_TEST_MODE": "true"},
+            {
+                "APP_ENV": "production",
+                "FLASK_ENV": "production",
+                "OTP_DEVELOPMENT_MODE": "true",
+            },
             clear=False,
         ):
             with self.assertRaises(RuntimeError):
                 create_app()
+
+    def test_development_mode_requires_an_explicit_development_environment(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "testing",
+                "FLASK_ENV": "testing",
+                "OTP_DEVELOPMENT_MODE": "true",
+            },
+            clear=False,
+        ):
+            with self.assertRaises(RuntimeError):
+                create_app()
+
+    def test_development_code_is_hidden_when_new_switch_is_false(self) -> None:
+        settings = {
+            "OTP_DEVELOPMENT_MODE": "false",
+            "OTP_TEST_MODE": "true",
+            "EMAIL_PROVIDER": "resend",
+            "RESEND_API_KEY": "test-provider-key",
+            "EMAIL_FROM_ADDRESS": "verified-sender@example.com",
+        }
+        with patch.dict(os.environ, settings, clear=False):
+            with patch(
+                "app.auth.otp_service.send_email_otp",
+                return_value=EmailDeliveryResult("email-reference"),
+            ):
+                response = self.request_email_code("hidden@example.com")
+                page = self.client.get("/verify").get_data(as_text=True)
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn("Development OTP", page)
+        self.assertIsNone(re.search(r"<code>\d{6}</code>", page))
+
+    def test_plain_development_code_never_appears_in_application_logs(self) -> None:
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        self.app.logger.addHandler(handler)
+        try:
+            self.request_email_code("log-check@example.com")
+            code = self.development_code()
+        finally:
+            self.app.logger.removeHandler(handler)
+        self.assertNotIn(code, stream.getvalue())
+
+    def test_startup_logs_only_safe_configuration_status(self) -> None:
+        with self.assertLogs("app.server", level="INFO") as logs:
+            create_app()
+        combined = "\n".join(logs.output)
+        self.assertIn("Email OTP provider: not configured", combined)
+        self.assertIn("SMS OTP provider: not configured", combined)
+        self.assertIn("Development OTP mode: enabled", combined)
+        self.assertNotIn("test-secret-key", combined)
+        self.assertNotIn("test-otp-pepper", combined)
 
     def test_ip_rate_limit_applies_across_different_destinations(self) -> None:
         with patch.dict(
@@ -319,14 +405,68 @@ class PhoneOTPTests(AuthFlowTestCase):
         self.assertEqual(invalid.status_code, 400)
         self.assertIn("valid phone number", invalid.get_data(as_text=True))
 
-        with patch.dict(os.environ, {"OTP_TEST_MODE": "false", "SMS_PROVIDER": "twilio"}, clear=False):
+        settings = {
+            "OTP_DEVELOPMENT_MODE": "false",
+            "SMS_PROVIDER": "twilio",
+            "TWILIO_ACCOUNT_SID": "AC-test",
+            "TWILIO_AUTH_TOKEN": "test-token",
+            "TWILIO_VERIFY_SERVICE_SID": "VA-test",
+        }
+        with patch.dict(os.environ, settings, clear=False):
             with patch(
                 "app.auth.otp_service.send_sms_otp",
-                side_effect=SMSDeliveryError("provider failure"),
+                side_effect=SMSDeliveryError("provider failure", "delivery_rejected"),
             ):
                 failure = self.request_phone_code("2025550187", "US")
         self.assertEqual(failure.status_code, 502)
-        self.assertIn("could not send a verification code", failure.get_data(as_text=True))
+        self.assertIn("could not send the code right now", failure.get_data(as_text=True))
+
+    def test_missing_sms_configuration_is_reported_without_creating_a_challenge(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"OTP_DEVELOPMENT_MODE": "false", "SMS_PROVIDER": ""},
+            clear=False,
+        ):
+            failure = self.request_phone_code("2025550187", "US")
+        self.assertEqual(failure.status_code, 503)
+        self.assertIn("temporarily unavailable", failure.get_data(as_text=True))
+        with get_connection() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM otp_challenges").fetchone()[0], 0)
+
+    def test_twilio_verify_flow_uses_provider_check_and_local_attempt_limits(self) -> None:
+        settings = {
+            "OTP_DEVELOPMENT_MODE": "false",
+            "SMS_PROVIDER": "twilio",
+            "TWILIO_ACCOUNT_SID": "AC-test",
+            "TWILIO_AUTH_TOKEN": "test-token",
+            "TWILIO_VERIFY_SERVICE_SID": "VA-test",
+        }
+        with patch.dict(os.environ, settings, clear=False):
+            with patch(
+                "app.auth.otp_service.send_sms_otp",
+                return_value=SMSDeliveryResult("VE-test"),
+            ):
+                requested = self.request_phone_code("2025550187", "US")
+            page = self.client.get("/verify").get_data(as_text=True)
+            self.assertNotIn("Development OTP", page)
+            with patch("app.auth.otp_service.verify_sms_otp", return_value=False):
+                wrong = self.verify("123456")
+            with patch("app.auth.otp_service.verify_sms_otp", return_value=True):
+                verified = self.verify("654321")
+
+        self.assertEqual(requested.status_code, 302)
+        self.assertEqual(wrong.status_code, 400)
+        self.assertEqual(verified.status_code, 200)
+        with get_connection() as db:
+            challenge = db.execute(
+                "SELECT delivery_method, provider_reference, attempts, used_at FROM otp_challenges"
+            ).fetchone()
+            user = db.execute("SELECT verified_phone FROM users").fetchone()
+        self.assertEqual(challenge["delivery_method"], "twilio_verify")
+        self.assertEqual(challenge["provider_reference"], "VE-test")
+        self.assertEqual(challenge["attempts"], 1)
+        self.assertIsNotNone(challenge["used_at"])
+        self.assertEqual(user["verified_phone"], "+12025550187")
 
 
 class ExistingAccountTests(AuthFlowTestCase):

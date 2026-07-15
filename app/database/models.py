@@ -13,6 +13,8 @@ class User:
     verified_phone: str | None = None
     email_verified_at: str | None = None
     phone_verified_at: str | None = None
+    is_admin: bool = False
+    deleted_at: str | None = None
 
     @property
     def display_identifier(self) -> str:
@@ -35,6 +37,8 @@ class OTPChallenge:
     created_at: str
     last_sent_at: str
     requested_ip_hash: str
+    delivery_method: str = "local"
+    provider_reference: str | None = None
 
 
 @dataclass(frozen=True)
@@ -63,22 +67,65 @@ class UserProfile:
     marital_status: str | None = None
     social_category: str | None = None
 
-    def to_agent_context(self) -> dict[str, str]:
-        """Return only useful, non-empty profile values for the assistant."""
+    def to_agent_context(self, user_message: str = "") -> dict[str, str]:
+        """Return only current-user fields relevant to this specific request."""
 
         values = {
-            "full_name": self.full_name,
             "age": self.age,
             "state": self.state,
             "district": self.district,
             "occupation": self.occupation,
             "occupation_custom": self.occupation_custom,
             "location_type": self.location_type,
-            "preferred_language": self.preferred_language,
             "gender": self.gender,
             "annual_household_income_range": self.annual_household_income_range,
             "disability_status": self.disability_status,
             "marital_status": self.marital_status,
             "social_category": self.social_category,
         }
-        return {key: value for key, value in values.items() if value}
+        text = str(user_message or "").casefold()
+        broad_eligibility = any(
+            term in text
+            for term in (
+                "scheme",
+                "yojana",
+                "benefit",
+                "eligible",
+                "eligibility",
+                "support for me",
+                "for my profile",
+                "recommend",
+                "scholarship",
+                "pension",
+                "subsidy",
+            )
+        )
+        field_terms = {
+            "age": ("age", "birth", "senior", "pension", "student", "scholarship"),
+            "state": ("state", "district", "local", "near me", "rural", "urban"),
+            "district": ("district", "local", "near me"),
+            "occupation": (
+                "occupation",
+                "job",
+                "work",
+                "student",
+                "farmer",
+                "business",
+                "employ",
+                "retired",
+            ),
+            "occupation_custom": ("occupation", "job", "work", "business"),
+            "location_type": ("rural", "urban", "village", "city", "location"),
+            "gender": ("gender", "woman", "women", "girl", "female", "widow"),
+            "annual_household_income_range": ("income", "economic", "ews", "bpl"),
+            "disability_status": ("disability", "disabled", "divyang"),
+            "marital_status": ("marital", "married", "widow", "spouse"),
+            "social_category": ("category", "caste", "sc ", "st ", "obc", "minority"),
+        }
+        relevant: dict[str, str] = {}
+        for key, value in values.items():
+            if not value:
+                continue
+            if broad_eligibility or any(term in text for term in field_terms[key]):
+                relevant[key] = value
+        return relevant

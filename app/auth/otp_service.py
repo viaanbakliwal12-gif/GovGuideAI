@@ -16,18 +16,28 @@ from cryptography.fernet import Fernet, InvalidToken
 from flask import current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.auth.email_provider import EmailDeliveryError, send_email_otp
-from app.auth.sms_provider import SMSDeliveryError, send_sms_otp
+from app.auth.email_provider import (
+    EmailDeliveryError,
+    email_provider_configured,
+    send_email_otp,
+)
+from app.auth.sms_provider import (
+    SMSDeliveryError,
+    cancel_sms_verification,
+    send_sms_otp,
+    sms_provider_configured,
+    verify_sms_otp,
+)
 from app.auth.validators import mask_destination, normalize_email, normalize_phone_number
 from app.database.models import OTPChallenge, User
 from app.database.session import get_connection
 
 
-GENERIC_DELIVERY_MESSAGE = (
-    "We could not send a verification code. Check the address or number and try again."
-)
+GENERIC_DELIVERY_MESSAGE = "We could not send the code right now. Please try again later."
 GENERIC_CODE_MESSAGE = "That code is incorrect or has expired."
 COOLDOWN_MESSAGE = "Please wait before requesting another code."
+EMAIL_UNAVAILABLE_MESSAGE = "Email verification is temporarily unavailable."
+SMS_UNAVAILABLE_MESSAGE = "Phone verification is temporarily unavailable."
 
 
 class OTPServiceError(RuntimeError):
@@ -55,6 +65,18 @@ class VerificationResult:
     is_new_user: bool
 
 
+@dataclass(frozen=True)
+class OTPConfigurationStatus:
+    development_mode: bool
+    email_configured: bool
+    sms_configured: bool
+
+    def channel_available(self, channel: str) -> bool:
+        if self.development_mode:
+            return channel in {"email", "sms"}
+        return self.email_configured if channel == "email" else self.sms_configured
+
+
 _development_codes: dict[str, str] = {}
 _development_codes_lock = Lock()
 
@@ -75,17 +97,28 @@ def request_otp(
         if clean_channel == "email"
         else normalize_phone_number(destination_value, country_code)
     )
+    _ensure_channel_available(clean_channel)
     now = _now()
     destination_hash = _stable_hash(f"destination:{clean_channel}:{destination}")
     ip_hash = _stable_hash(f"ip:{request_ip or 'unknown'}")
     _enforce_request_limits(destination_hash, ip_hash, now)
 
-    otp = f"{secrets.randbelow(1_000_000):06d}"
+    delivery_method = _delivery_method(clean_channel)
+    otp = (
+        f"{secrets.randbelow(1_000_000):06d}"
+        if delivery_method in {"development", "email_provider"}
+        else None
+    )
     public_id = secrets.token_urlsafe(24)
     expires_at = now + timedelta(minutes=_setting("OTP_EXPIRY_MINUTES", 10, minimum=1))
-    otp_hash = generate_password_hash(f"{otp}:{_otp_pepper()}")
+    # Twilio Verify owns its generated code. A random, unreachable local verifier
+    # keeps the schema non-null without storing or fabricating the provider code.
+    local_verifier = otp or secrets.token_urlsafe(32)
+    otp_hash = generate_password_hash(f"{local_verifier}:{_otp_pepper()}")
     encrypted_destination = _fernet().encrypt(destination.encode("utf-8")).decode("ascii")
 
+    invalidated_public_ids: list[str] = []
+    invalidated_provider_references: list[str] = []
     with get_connection() as db:
         latest = db.execute(
             """
@@ -96,6 +129,21 @@ def request_otp(
             (destination_hash,),
         ).fetchone()
         resend_count = (int(latest["resend_count"]) + 1) if latest else 0
+
+        active_rows = db.execute(
+            """
+            SELECT public_id, delivery_method, provider_reference
+            FROM otp_challenges
+            WHERE destination_hash = ? AND used_at IS NULL
+            """,
+            (destination_hash,),
+        ).fetchall()
+        invalidated_public_ids = [str(row["public_id"]) for row in active_rows]
+        invalidated_provider_references = [
+            str(row["provider_reference"])
+            for row in active_rows
+            if row["delivery_method"] == "twilio_verify" and row["provider_reference"]
+        ]
 
         # A newly requested code always supersedes every older active code.
         db.execute(
@@ -110,8 +158,9 @@ def request_otp(
             INSERT INTO otp_challenges (
                 public_id, destination_hash, destination_encrypted, channel,
                 purpose, otp_hash, expires_at, attempts, resend_count,
-                used_at, created_at, last_sent_at, requested_ip_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?, ?, ?)
+                used_at, created_at, last_sent_at, requested_ip_hash,
+                delivery_method, provider_reference
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, ?, ?, ?, ?, NULL)
             """,
             (
                 public_id,
@@ -125,19 +174,58 @@ def request_otp(
                 _iso(now),
                 _iso(now),
                 ip_hash,
+                delivery_method,
             ),
         )
 
+    for invalidated_public_id in invalidated_public_ids:
+        _remove_development_code(invalidated_public_id)
+
     try:
-        _deliver_code(clean_channel, destination, otp, public_id)
-    except (EmailDeliveryError, SMSDeliveryError):
+        for provider_reference in invalidated_provider_references:
+            cancel_sms_verification(provider_reference)
+        provider_reference = _deliver_code(
+            clean_channel,
+            destination,
+            otp,
+            public_id,
+            delivery_method,
+        )
+        if provider_reference:
+            with get_connection() as db:
+                db.execute(
+                    "UPDATE otp_challenges SET provider_reference = ? WHERE public_id = ?",
+                    (provider_reference, public_id),
+                )
+    except (EmailDeliveryError, SMSDeliveryError) as error:
         with get_connection() as db:
             db.execute(
                 "UPDATE otp_challenges SET used_at = ? WHERE public_id = ?",
                 (_iso(_now()), public_id),
             )
         _remove_development_code(public_id)
+        current_app.logger.error(
+            "OTP delivery failed channel=%s destination=%s reason=%s",
+            clean_channel,
+            mask_destination(destination, clean_channel),
+            error.reason_code,
+        )
         raise OTPServiceError(GENERIC_DELIVERY_MESSAGE, "couldNotSendCode", 502)
+    except Exception as error:
+        with get_connection() as db:
+            db.execute(
+                "UPDATE otp_challenges SET used_at = ? WHERE public_id = ?",
+                (_iso(_now()), public_id),
+            )
+        _remove_development_code(public_id)
+        current_app.logger.error(
+            "Unexpected OTP delivery failure channel=%s destination=%s error_type=%s",
+            clean_channel,
+            mask_destination(destination, clean_channel),
+            type(error).__name__,
+            exc_info=True,
+        )
+        raise OTPServiceError(GENERIC_DELIVERY_MESSAGE, "couldNotSendCode", 502) from error
 
     return ChallengeState(
         public_id=public_id,
@@ -175,10 +263,27 @@ def verify_otp(public_id: str, code: str) -> VerificationResult:
         raise OTPServiceError(GENERIC_CODE_MESSAGE, "incorrectOrExpiredCode")
 
     clean_code = re.sub(r"\s+", "", str(code or ""))
-    is_correct = bool(re.fullmatch(r"\d{6}", clean_code)) and check_password_hash(
-        challenge.otp_hash,
-        f"{clean_code}:{_otp_pepper()}",
-    )
+    is_correct = False
+    if re.fullmatch(r"\d{6}", clean_code):
+        if challenge.delivery_method == "twilio_verify":
+            destination = _decrypt_destination(challenge.destination_encrypted)
+            try:
+                is_correct = verify_sms_otp(destination, clean_code)
+            except SMSDeliveryError as error:
+                if error.reason_code == "invalid_code":
+                    is_correct = False
+                else:
+                    current_app.logger.error(
+                        "OTP verification provider failed channel=sms destination=%s reason=%s",
+                        mask_destination(destination, "sms"),
+                        error.reason_code,
+                    )
+                    raise OTPServiceError(GENERIC_CODE_MESSAGE, "incorrectOrExpiredCode", 503)
+        else:
+            is_correct = check_password_hash(
+                challenge.otp_hash,
+                f"{clean_code}:{_otp_pepper()}",
+            )
     if not is_correct:
         with get_connection() as db:
             db.execute(
@@ -232,23 +337,80 @@ def get_challenge_state(public_id: str) -> ChallengeState | None:
     )
 
 
+def development_otp_mode_enabled() -> bool:
+    enabled = os.getenv("OTP_DEVELOPMENT_MODE", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not enabled:
+        return False
+
+    environments = {
+        value.strip().lower()
+        for value in (os.getenv("APP_ENV", ""), os.getenv("FLASK_ENV", ""))
+        if value.strip()
+    }
+    if environments & {"production", "prod"}:
+        raise RuntimeError(
+            "OTP_DEVELOPMENT_MODE cannot be enabled when the application is in production."
+        )
+    if not environments & {"development", "dev"}:
+        raise RuntimeError(
+            "OTP_DEVELOPMENT_MODE requires FLASK_ENV=development or APP_ENV=development."
+        )
+    return True
+
+
+# Compatibility import for older internal code. It intentionally uses only the
+# new OTP_DEVELOPMENT_MODE switch, so OTP_TEST_MODE can never reveal a code.
 def development_test_mode_enabled() -> bool:
-    enabled = os.getenv("OTP_TEST_MODE", "false").strip().lower() in {"1", "true", "yes", "on"}
-    environment = os.getenv("APP_ENV", os.getenv("FLASK_ENV", "development")).strip().lower()
-    if enabled and environment in {"production", "prod"}:
-        raise RuntimeError("OTP_TEST_MODE cannot be enabled when APP_ENV is production.")
-    return enabled
+    return development_otp_mode_enabled()
 
 
-def _deliver_code(channel: str, destination: str, otp: str, public_id: str) -> None:
-    if development_test_mode_enabled():
+def otp_configuration_status() -> OTPConfigurationStatus:
+    return OTPConfigurationStatus(
+        development_mode=development_otp_mode_enabled(),
+        email_configured=email_provider_configured(),
+        sms_configured=sms_provider_configured(),
+    )
+
+
+def _ensure_channel_available(channel: str) -> None:
+    status = otp_configuration_status()
+    if status.channel_available(channel):
+        return
+    message = EMAIL_UNAVAILABLE_MESSAGE if channel == "email" else SMS_UNAVAILABLE_MESSAGE
+    error_key = "emailUnavailable" if channel == "email" else "phoneUnavailable"
+    current_app.logger.warning("OTP method unavailable channel=%s reason=not_configured", channel)
+    raise OTPServiceError(message, error_key, 503)
+
+
+def _delivery_method(channel: str) -> str:
+    if development_otp_mode_enabled():
+        return "development"
+    return "email_provider" if channel == "email" else "twilio_verify"
+
+
+def _deliver_code(
+    channel: str,
+    destination: str,
+    otp: str | None,
+    public_id: str,
+    delivery_method: str,
+) -> str | None:
+    if delivery_method == "development":
+        if otp is None:
+            raise RuntimeError("A development OTP was not generated.")
         with _development_codes_lock:
             _development_codes[public_id] = otp
-        return
+        return None
     if channel == "email":
-        send_email_otp(destination, otp)
-    else:
-        send_sms_otp(destination, otp)
+        if otp is None:
+            raise RuntimeError("An email OTP was not generated.")
+        return send_email_otp(destination, otp).provider_reference
+    return send_sms_otp(destination).provider_reference
 
 
 def _enforce_request_limits(destination_hash: str, ip_hash: str, now: datetime) -> None:
@@ -319,7 +481,7 @@ def _find_or_create_verified_user(
         row = db.execute(
             """
             SELECT * FROM users
-            WHERE verified_email = ? OR email = ?
+            WHERE deleted_at IS NULL AND (verified_email = ? OR email = ?)
             ORDER BY CASE WHEN verified_email = ? THEN 0 ELSE 1 END, id
             LIMIT 1
             """,
@@ -327,7 +489,7 @@ def _find_or_create_verified_user(
         ).fetchone()
     else:
         row = db.execute(
-            "SELECT * FROM users WHERE verified_phone = ? LIMIT 1",
+            "SELECT * FROM users WHERE deleted_at IS NULL AND verified_phone = ? LIMIT 1",
             (destination,),
         ).fetchone()
 
@@ -412,6 +574,8 @@ def _user_from_row(row) -> User:
         verified_phone=row["verified_phone"],
         email_verified_at=row["email_verified_at"],
         phone_verified_at=row["phone_verified_at"],
+        is_admin=bool(row["is_admin"]),
+        deleted_at=row["deleted_at"],
     )
 
 
@@ -464,7 +628,7 @@ def _parse_time(value: str) -> datetime:
 
 
 def _get_development_code(public_id: str) -> str | None:
-    if not development_test_mode_enabled():
+    if not development_otp_mode_enabled():
         return None
     with _development_codes_lock:
         return _development_codes.get(public_id)

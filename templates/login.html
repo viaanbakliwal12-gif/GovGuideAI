@@ -22,7 +22,7 @@
           <p class="privacy-copy" data-i18n="loginOtpCopy">Verify your email or phone number to securely access your saved profile.</p>
         </div>
         {% if message %}<p class="notice success">{{ message }}</p>{% endif %}
-        {% if error %}<p class="notice error" {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
+        {% if error %}<p class="notice error" data-auth-error {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
         {% include "_auth_methods.html" %}
         <p class="form-footer"><span data-i18n="newHere">New here?</span> <a href="{{ url_for('auth.signup') }}" data-i18n="createAccount">Create an account</a></p>
       </section>

@@ -1956,3 +1956,356 @@ body {
     padding-left: 7px;
   }
 }
+
+/* Secure administration */
+.admin-body {
+  background:
+    linear-gradient(180deg, rgba(15, 47, 87, 0.05), transparent 240px),
+    var(--color-page);
+}
+
+.admin-header {
+  position: sticky;
+}
+
+.admin-nav,
+.admin-export-actions,
+.admin-pagination,
+.admin-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+.admin-nav form,
+.admin-export-actions form {
+  margin: 0;
+}
+
+.admin-shell {
+  display: grid;
+  gap: var(--spacing-5);
+  width: min(1500px, calc(100% - 32px));
+  margin: var(--spacing-5) auto var(--spacing-8);
+}
+
+.admin-heading,
+.admin-toolbar,
+.admin-table-card,
+.admin-privacy-note {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-heading,
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-5);
+  padding: var(--spacing-5);
+}
+
+.admin-heading > div:first-child {
+  display: grid;
+  gap: var(--spacing-2);
+}
+
+.admin-heading p:last-child,
+.admin-privacy-note {
+  color: var(--text-secondary);
+}
+
+.admin-stat-card {
+  display: grid;
+  min-width: 170px;
+  border-left: 4px solid var(--color-accent-saffron);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-saffron-soft);
+  padding: 12px 16px;
+}
+
+.admin-stat-card strong {
+  color: var(--color-primary);
+  font-size: 1.55rem;
+}
+
+.admin-stat-card span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.admin-search {
+  display: grid;
+  gap: 7px;
+  min-width: min(100%, 680px);
+}
+
+.admin-search-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 110px auto auto;
+  gap: var(--spacing-2);
+}
+
+.admin-search-row .secondary-button,
+.admin-export-actions .secondary-button,
+.admin-pagination .secondary-button {
+  text-decoration: none;
+}
+
+.export-button {
+  border-color: rgba(21, 115, 71, 0.35);
+  color: var(--color-accent-green);
+}
+
+.admin-table-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 2500px;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.admin-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-primary);
+  color: var(--text-inverse);
+  white-space: nowrap;
+}
+
+.admin-table tbody tr:nth-child(even) {
+  background: var(--color-surface-muted);
+}
+
+.admin-table tbody tr:hover {
+  background: var(--color-primary-soft);
+}
+
+.admin-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-sort:hover {
+  color: #ffe0b2;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-height: 25px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.status-pill.complete {
+  background: var(--color-accent-green-soft);
+  color: var(--color-accent-green);
+}
+
+.status-pill.incomplete {
+  background: var(--color-accent-saffron-soft);
+  color: #86500b;
+}
+
+.admin-empty {
+  padding: var(--spacing-8) !important;
+  color: var(--text-secondary);
+  text-align: center !important;
+}
+
+.admin-pagination {
+  justify-content: space-between;
+}
+
+.admin-pagination > span {
+  color: var(--text-secondary);
+  font-weight: 800;
+}
+
+.admin-privacy-note {
+  border-left: 4px solid var(--color-accent-green);
+  padding: 12px 14px;
+  font-size: 0.86rem;
+}
+
+.method-unavailable {
+  border-left: 3px solid var(--color-accent-saffron);
+  background: var(--color-accent-saffron-soft);
+  color: #6e430b;
+  padding: 8px 10px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.privacy-details {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  padding: 10px 12px;
+}
+
+.privacy-details summary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-weight: 900;
+}
+
+.privacy-details p {
+  margin-top: var(--spacing-2);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 940px) {
+  .admin-toolbar,
+  .admin-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-stat-card {
+    min-width: 0;
+  }
+
+  .admin-export-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-header {
+    position: static;
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-nav > *,
+  .admin-nav form,
+  .admin-nav button {
+    width: 100%;
+  }
+
+  .admin-shell {
+    width: min(100% - 20px, 700px);
+    margin-top: var(--spacing-3);
+  }
+
+  .admin-heading,
+  .admin-toolbar {
+    padding: var(--spacing-4);
+  }
+
+  .admin-search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-export-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-export-actions button {
+    width: 100%;
+  }
+
+  .admin-table-wrap {
+    overflow: visible;
+  }
+
+  .admin-table {
+    display: block;
+    min-width: 0;
+  }
+
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table tbody {
+    display: grid;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3);
+  }
+
+  .admin-table tr {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface) !important;
+    overflow: hidden;
+  }
+
+  .admin-table td {
+    display: grid;
+    grid-template-columns: minmax(115px, 0.8fr) minmax(0, 1.2fr);
+    gap: var(--spacing-3);
+    padding: 9px 11px;
+  }
+
+  .admin-table td::before {
+    color: var(--text-secondary);
+    content: attr(data-label);
+    font-weight: 900;
+  }
+
+  .admin-empty::before {
+    content: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-export-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-table td {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}

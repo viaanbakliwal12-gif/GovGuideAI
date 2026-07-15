@@ -4,9 +4,12 @@ import sqlite3
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from app.database.migrations import apply_migrations
 
 
+load_dotenv()
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(BASE_DIR / "govguideai.sqlite3")))
 

@@ -9,6 +9,8 @@ GovGuideAI keeps the existing Flask application and organizes new features into 
 - `app/agent/` contains the OpenAI Responses API setup, system prompt, tool schema, and response model.
 - `app/auth/` contains guest sessions, password compatibility, OTP orchestration,
   identifier validation, provider adapters, login/logout, and account deletion.
+- `app/admin/` contains admin authorization, profile queries, in-memory exports,
+  export auditing, and the guarded first-admin promotion command.
 - `app/profiles/` contains profile setup, editing, deletion, language saving, and database helpers.
 - `app/database/` contains SQLite connection setup, table creation, and compatibility updates.
 - `app/tools/` contains local tool code, including official-source Scheme Search.
@@ -29,3 +31,7 @@ or sends verification messages itself.
 
 `app/security.py` supplies per-session CSRF tokens and secure cookie defaults.
 All state-changing forms and browser API requests send the CSRF token.
+
+The admin blueprint uses the same CSRF layer plus an independent server-side
+`is_admin` check on every route. Export content is built only for an authorized
+request and never written under `static/`.

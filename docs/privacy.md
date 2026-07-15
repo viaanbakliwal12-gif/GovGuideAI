@@ -1,51 +1,25 @@
 # Privacy
 
-GovGuideAI stores only basic profile details needed for government-service and scheme personalization.
+GovGuideAI stores account and profile information in its private SQLite database so it can provide personalized government-service and scheme recommendations. Profile data is not used for advertising.
 
-## Collected
+## Profile and account information
 
-- Verified email (when an account uses email)
-- Verified E.164 phone number (when an account uses phone)
-- Password hash
-- Created date
-- Last login date
-- Name
-- Age or date of birth
-- State or Union Territory
-- District
-- Occupation
-- Optional custom occupation text when occupation is `other`
-- Rural or urban location type
-- Preferred language
-- Optional eligibility-related details such as income range, disability status, marital status, gender, and social category
+Depending on how an account is used, GovGuideAI may store a verified email, verified E.164 phone number, password hash for legacy password login, account dates, name, age or date of birth, State or Union Territory, district, occupation, custom occupation, rural or urban location, preferred language, and optional eligibility-related profile fields.
 
-## Not Collected
+Only authenticated, authorized administrators can access the protected profile dashboard or request an export. Dashboard contacts are masked. Exports are generated in memory only when requested and are never placed in `static/` or a public URL. Export auditing stores only the admin user ID, timestamp, format, and record count—not exported profile values.
 
-- Aadhaar number
-- PAN number
-- Bank details
-- Plain-text OTPs
-- Exact home address
-- Plain-text passwords
-- Identity documents
-- Voiceprints
-- Audio for identification
+Users can edit or delete their profile and can delete their account from the profile page. Account/profile forms cannot grant admin access.
 
-## Voice
+## Information users must not enter
 
-Voice recording starts only when the user presses the microphone button. The app shows a visible recording indicator while recording is active.
+Do not enter Aadhaar numbers, PAN numbers, bank or card details, passwords, PINs, OTPs, authentication tokens, exact home addresses, identity-document images, or other highly sensitive information in a profile or chat.
 
-Recorded audio is sent to the Flask backend for transcription and is not intentionally stored by GovGuideAI. Temporary audio files are deleted after transcription. Generated speech is returned to the browser from memory and is not permanently saved.
+GovGuideAI does not store plaintext passwords or plaintext production OTPs. It does not intentionally store voice recordings. Temporary transcription uploads are deleted after use, and generated speech is returned from memory.
 
-Profile information and language choice are used only to personalize government-service and scheme guidance. They are not used for advertising or unrelated analytics.
+## Guest privacy
 
-## Verification and Guest Privacy
+Guest mode does not create a permanent user or profile. A random browser-session token maps to a hashed, expiring server record. Guest conversation response IDs remain process-local and do not provide permanent history or cross-device access.
 
-Verification challenges contain a one-way destination hash, encrypted delivery
-destination, salted/peppered OTP hash, expiry, counters, and a one-way IP hash.
-Plaintext codes are not stored or logged. Development-only codes appear only on
-the local verification page when explicitly enabled outside production.
+## AI data minimization
 
-Guests do not provide an email, phone number, name, or profile. A random token
-in an HttpOnly browser-session cookie maps to a hashed, expiring server record.
-Guest chat history is not written to the database and has no cross-device access.
+The complete user dataset is never sent to the AI. For a logged-in request, GovGuideAI considers only the current user and selects only profile fields relevant to that specific question. Names, contact identifiers, admin roles, password hashes, OTP data, sessions, exports, and other users' records are excluded from the agent context.

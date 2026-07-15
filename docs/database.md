@@ -21,6 +21,8 @@ govguideai.sqlite3
 - `phone_verified_at`
 - `created_at`
 - `last_login_at`
+- `is_admin` (0 or 1; never editable through profile forms)
+- `deleted_at` (nullable compatibility marker used to exclude deleted accounts)
 
 `profiles`
 
@@ -78,8 +80,20 @@ plus creation, last-seen, and expiry times. Guest sessions do not reference
 
 `schema_migrations` records applied compatibility migrations. The user-table
 migration copies all existing IDs and legacy fields before replacing the old
-NOT NULL email/password definition, allowing verified phone-only users without
-fake email addresses. It does not delete or recreate the database file.
+  NOT NULL email/password definition, allowing verified phone-only users without
+  fake email addresses. It does not delete or recreate the database file.
+
+`otp_challenges` also records `delivery_method` and an optional provider
+reference. Neither field contains an OTP or provider credential.
+
+`export_audit_log` stores only:
+
+- `admin_user_id`
+- `exported_at`
+- `file_format` (`csv` or `json`)
+- `record_count`
+
+No exported profile values are copied into the audit table.
 
 Run migrations explicitly with:
 

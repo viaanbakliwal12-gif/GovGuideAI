@@ -22,7 +22,7 @@
     >Continue with phone</button>
   </div>
 
-  <form class="stacked-form auth-code-form" method="post" action="{{ url_for('auth.request_code') }}" data-auth-code-form>
+  <form class="stacked-form auth-code-form" method="post" action="{{ url_for('auth.request_code') }}" data-auth-code-form data-email-available="{{ 'true' if auth_availability.email else 'false' }}" data-phone-available="{{ 'true' if auth_availability.phone else 'false' }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="purpose" value="{{ purpose }}">
     <input type="hidden" name="channel" value="{{ 'phone' if active_mode == 'phone' else 'email' }}" data-auth-channel>
@@ -32,6 +32,7 @@
       <label><span data-i18n="emailAddress">Email address</span>
         <input name="email" type="email" required autocomplete="email" inputmode="email" value="{{ email }}" data-auth-input="email">
       </label>
+      <p class="method-unavailable" data-method-unavailable="email" {% if auth_availability.email %}hidden{% endif %} data-i18n="emailUnavailable">Email verification is temporarily unavailable.</p>
     </div>
 
     <div id="phonePanel" class="auth-panel" role="tabpanel" aria-labelledby="phoneTab" data-auth-panel="phone" {% if active_mode != 'phone' %}hidden{% endif %}>
@@ -45,9 +46,10 @@
       <label><span data-i18n="phoneNumber">Phone number</span>
         <input name="phone_number" type="tel" required autocomplete="tel-national" inputmode="tel" value="{{ phone_number }}" data-auth-input="phone" data-i18n-placeholder="phoneExample" placeholder="e.g. 98765 43210">
       </label>
+      <p class="method-unavailable" data-method-unavailable="phone" {% if auth_availability.phone %}hidden{% endif %} data-i18n="phoneUnavailable">Phone verification is temporarily unavailable.</p>
     </div>
 
-    <button class="primary-button" type="submit" data-submit-label="sendCode" data-i18n="sendCode">Send code</button>
+    <button class="primary-button" type="submit" data-submit-label="sendCode" data-auth-submit {% if not auth_availability[active_mode] %}disabled{% endif %}><span data-submit-text data-i18n="sendCode">Send code</span></button>
   </form>
 </div>
 

@@ -48,6 +48,10 @@
           <h2 data-i18n="viewEditProfile">View and Edit Profile</h2>
         </div>
         <p class="privacy-copy" data-i18n="profilePrivacy">Profile information is used only for personalized government-service and scheme guidance, not advertising or unrelated analytics.</p>
+        <details class="privacy-details">
+          <summary data-i18n="profilePrivacyDetailsTitle">How profile information is handled</summary>
+          <p data-i18n="profilePrivacyDetails">Your profile is stored for personalized recommendations, may be accessed only by authorized administration, and is not used for advertising. You can edit or delete your profile or account. Do not enter Aadhaar numbers, bank details, passwords, OTPs, or other highly sensitive information.</p>
+        </details>
         {% if saved %}<p class="notice success" data-i18n="profileSaved">Profile saved.</p>{% endif %}
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="profile-form" method="post" action="{{ url_for('profiles.profile_post') }}">

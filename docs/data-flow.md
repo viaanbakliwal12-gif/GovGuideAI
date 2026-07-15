@@ -26,12 +26,21 @@ hash and conversation ID. It is process-local and expires with the guest session
 1. The browser submits an email or a phone number plus country to Flask.
 2. Flask validates and normalizes the identifier (`phonenumbers` produces E.164).
 3. Rate/cooldown limits are checked by HMAC destination and IP hashes.
-4. Flask creates a random six-digit code and stores only a salted/peppered hash.
-5. The destination is encrypted in the challenge row and the provider sends the code.
+4. In development/email mode Flask creates a random six-digit code and stores only a salted/peppered hash. Twilio Verify generates phone codes itself.
+5. The destination is encrypted in the challenge row and the selected provider sends the code.
 6. The browser receives only a public challenge reference and masked destination.
 7. Successful verification invalidates every active code for that destination.
 8. An existing identifier reuses its account; otherwise a new user is created.
 9. Returning users enter chat, while new verified users complete profile setup.
+
+## Admin export
+
+1. Flask validates the authenticated session and `is_admin` role.
+2. The dashboard queries only active users and joins their optional profile row.
+3. A CSRF-protected export POST repeats the admin check.
+4. Records are sorted by user ID and serialized to UTF-8 CSV or JSON in memory.
+5. The response is a private, no-store attachment; no public file is created.
+6. SQLite records only admin ID, timestamp, format, and record count.
 
 ## Voice Mode
 

@@ -7,6 +7,11 @@ __pycache__/
 *.pyc
 
 govguideai.sqlite3
+instance/*.db
+exports/
+*.csv
+user_export_*.json
+user_export_*.csv
 
 .vscode/
 .idea/

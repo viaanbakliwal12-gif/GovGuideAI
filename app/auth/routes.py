@@ -6,6 +6,7 @@ from app.auth.guest_service import end_guest_session, start_guest_session
 from app.auth.otp_service import (
     OTPServiceError,
     get_challenge_state,
+    otp_configuration_status,
     request_otp,
     resend_otp,
     verify_otp,
@@ -268,6 +269,7 @@ def _render_auth_page(
 ):
     template = "signup.html" if purpose == "signup" else "login.html"
     requested_mode = active_mode or request.args.get("mode", "email")
+    otp_status = otp_configuration_status()
     return render_template(
         template,
         error=error,
@@ -279,4 +281,9 @@ def _render_auth_page(
         email=email,
         phone_number=phone_number,
         selected_country=selected_country,
+        auth_availability={
+            "email": otp_status.channel_available("email"),
+            "phone": otp_status.channel_available("sms"),
+        },
+        development_otp_mode=otp_status.development_mode,
     )

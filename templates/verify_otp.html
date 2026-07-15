@@ -33,9 +33,9 @@
           </div>
 
           {% if challenge.development_code %}
-            <p class="notice development-notice"><strong data-i18n="developmentOnly">Development only:</strong> <span data-i18n="testCode">test code</span> <code>{{ challenge.development_code }}</code></p>
+            <p class="notice development-notice" role="status"><strong data-i18n="developmentOtpWarning">Development OTP — not for production</strong> <code>{{ challenge.development_code }}</code></p>
           {% endif %}
-          {% if error %}<p class="notice error" {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
+          {% if error %}<p class="notice error" data-otp-error {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
 
           <form class="stacked-form otp-form" method="post" action="{{ url_for('auth.verification_post') }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

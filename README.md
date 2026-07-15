@@ -1,133 +1,162 @@
 # GovGuideAI
 
-GovGuideAI is a Flask application that helps Indian citizens understand government schemes, services, passport processes, required documents, and grievance procedures.
-
-It keeps OpenAI API calls on the server, uses the existing GovGuideAI agent, and personalizes answers with the logged-in user's saved profile.
-
-## Main Features
-
-- Text chat with the existing OpenAI Responses API agent
-- Multilingual voice input and spoken answers
-- First-time language selection before login
-- Local UI translations in `static/js/i18n.js`
-- Login, sign-up, profile setup, and profile editing
-- Guest access without mandatory personal details or a database user account
-- Email or international phone-number login with 6-digit OTP verification
-- Simplified occupation-based profile
-- Conversation memory per user and browser conversation
-- Official-source guidance with Web Search, Scheme Search, and Word Count
+GovGuideAI is a Flask application for beginner-friendly guidance about Indian government schemes, services, documents, passports, and grievance procedures. It preserves text chat, multilingual UI, voice transcription and speech, guest mode, profile personalization, conversation memory, Web Search, official-source Scheme Search, Word Count, and official-government-source rules.
 
 ## Install
 
+From the project root in PowerShell:
+
 ```powershell
-& "$HOME\.local\bin\uv.exe" pip install --python .\.venv\Scripts\python.exe -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-Apply the safe in-place SQLite migration (startup also runs it automatically):
+If the project Python is not active:
+
+```powershell
+$env:PYTHONPATH = Join-Path $PWD ".venv\Lib\site-packages"
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+## Configure
+
+Copy `.env.example` to `.env`. Required core values are:
+
+```text
+OPENAI_API_KEY=
+SECRET_KEY=
+FLASK_ENV=development
+APP_ENV=development
+```
+
+For local email and phone OTP testing without providers:
+
+```text
+OTP_DEVELOPMENT_MODE=true
+```
+
+This creates a fresh random code for every request, stores only its salted/peppered hash in SQLite, and shows the code only on the local verification page under **Development OTP — not for production**. It is never printed to application logs. The app refuses to start with this flag in production or without an explicit development environment.
+
+For real Resend email OTP:
+
+```text
+OTP_DEVELOPMENT_MODE=false
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=
+EMAIL_FROM_ADDRESS=GovGuideAI <verified-sender@example.com>
+```
+
+For real Twilio Verify phone OTP:
+
+```text
+OTP_DEVELOPMENT_MODE=false
+SMS_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_VERIFY_SERVICE_SID=
+```
+
+Phone numbers keep the country selector, are validated with `phonenumbers`, and are normalized to E.164. See [docs/authentication.md](docs/authentication.md) for security settings and provider behavior.
+
+## Migrate safely
+
+Apply in-place migrations before restarting:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\migrate.ps1
 ```
 
-## Run
+Startup also applies these migrations. They alter the existing database in place; they do not delete or recreate `govguideai.sqlite3`.
+
+## Run and restart
+
+Stop the old Flask process with `Ctrl+C`, then run either:
+
+```powershell
+python main.py
+```
+
+or the project helper:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run_ui.ps1
 ```
 
-Then open:
+Open `http://127.0.0.1:5000/`.
 
-```text
-http://127.0.0.1:5000/
-```
+## First admin
 
-## Environment
+1. Add the intended verified email to `.env`:
 
-Copy `.env.example` to `.env`, then configure at least:
+   ```text
+   ADMIN_EMAIL=admin@example.com
+   ```
 
-```text
-OPENAI_API_KEY=your_openai_api_key_here
-SECRET_KEY=replace-with-a-long-random-value
-APP_ENV=development
-OTP_TEST_MODE=true
-```
+2. Log in once with that email OTP.
+3. Run the guarded one-time command:
 
-`OTP_TEST_MODE=true` is only for local development. The code is shown in a
-clearly labelled development notice on the verification page; it is never
-printed to logs. The app refuses to start with test mode enabled when
-`APP_ENV=production`.
+   ```powershell
+   python -m app.admin.promote_admin admin@example.com
+   ```
 
-For real email delivery, set `EMAIL_PROVIDER` to `resend` or `sendgrid`, plus
-`EMAIL_API_KEY` and `EMAIL_FROM_ADDRESS`. For real SMS delivery, set
-`SMS_PROVIDER=twilio`, `SMS_ACCOUNT_ID`, `SMS_API_KEY`, and `SMS_SENDER_ID`.
-Keep every API key server-side; never put provider credentials in HTML or
-JavaScript. See `docs/authentication.md` for the full configuration.
+4. Restart, sign in as that user, and open `http://127.0.0.1:5000/admin`.
 
-For Render, use `pip install -r requirements.txt` as the build command and
-`gunicorn main:app --bind 0.0.0.0:$PORT` as the start command. Configure
-`OPENAI_API_KEY`, `SECRET_KEY`, `APP_ENV=production`, OTP security values, and
-the selected email/SMS provider values in the Render environment. Keep
-`OTP_TEST_MODE=false` in production.
+Guests and normal users receive HTTP 403. Profile forms cannot change `is_admin`. See [docs/admin.md](docs/admin.md) for the virtual-environment command and security details.
 
-## Project Structure
+## Admin exports
 
-- `app/agent/` - GovGuideAI Responses API agent and prompt
-- `app/auth/` - guest sessions, legacy password login, OTP auth, providers, validation
-- `app/database/` - SQLite connection, table creation, compatibility updates
-- `app/profiles/` - profile setup, editing, language saving
-- `app/tools/` - Scheme Search and Word Count helpers
-- `app/voice/` - voice transcription and speech generation endpoints
-- `static/js/chat.js` - text chat and shared message sending
-- `static/js/voice.js` - MediaRecorder, transcription, playback controls
-- `static/js/i18n.js` - local UI translations and language storage
-- `templates/` - Flask HTML templates
-- `docs/` - architecture, data flow, database, and privacy notes
+The admin dashboard provides **Export CSV** and **Export JSON**. Both are CSRF-protected POST requests that repeat the server-side admin check. Records are generated in memory, encoded as UTF-8, sorted by user ID, and returned as private no-store downloads. No export is placed in `static/`, at a public URL, or permanently on disk.
 
-## Guest Sessions
+Exports exclude password hashes, OTP hashes and attempts, sessions, authentication tokens, provider references and credentials, API keys, voice recordings, and chat messages. Audit rows contain only admin ID, UTC timestamp, format, and record count.
 
-Guest mode creates a random anonymous browser-session token and stores only its
-HMAC hash in `guest_sessions`; it does not create a row in `users`. The Flask
-cookie is HttpOnly and non-permanent, while the server record expires after 24
-hours by default. Guest conversation response IDs stay only in process memory,
-so there is no permanent profile, saved history, or cross-device access.
+## Environment variables
 
-Guests retain text chat, voice input, spoken answers, language selection, Web
-Search, Scheme Search, Word Count, and official-source rules. Details shared in
-conversation can influence that temporary response chain without becoming a
-saved profile.
+Core:
 
-## Verification Semantics
+- `OPENAI_API_KEY`
+- `SECRET_KEY`
+- `FLASK_ENV`
+- `APP_ENV`
+- optional `DATABASE_PATH`
 
-Email and phone formats are validated before delivery. A successful OTP proves
-that the user controlled the destination during verification; it cannot prove
-in advance that an address or number exists, and delivery delays are not treated
-as evidence that a destination is fake.
+OTP security:
 
-Phone input is parsed with `phonenumbers`, validated for the selected country,
-and stored in E.164 form such as `+919876543210`. OTP values are generated with
-`secrets`, stored only as salted hashes combined with a server secret, expire,
-have attempt/resend limits, and are invalidated after use or replacement.
+- `OTP_DEVELOPMENT_MODE`
+- `OTP_EXPIRY_MINUTES`
+- `OTP_MAX_ATTEMPTS`
+- `OTP_RESEND_COOLDOWN_SECONDS`
+- `OTP_MAX_REQUESTS_PER_DESTINATION`
+- `OTP_MAX_REQUESTS_PER_IP`
+- `OTP_PEPPER`
+- optional `OTP_DESTINATION_KEY`
 
-## Voice Flow
+Providers and administration:
 
-Browser microphone recording stays user-initiated. The browser records audio with MediaRecorder, sends the temporary audio file to `/api/voice/transcribe`, sends the returned transcript through the existing `/api/chat` route, then requests spoken audio from `/api/voice/speak`.
+- `EMAIL_PROVIDER`
+- `RESEND_API_KEY`
+- `EMAIL_FROM_ADDRESS`
+- `SMS_PROVIDER`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_VERIFY_SERVICE_SID`
+- `ADMIN_EMAIL`
+- `GUEST_SESSION_TTL_HOURS`
 
-Audio is not intentionally stored by GovGuideAI. Temporary uploaded files are deleted after transcription, and generated speech is returned from memory.
+## Project structure
 
-## Language Flow
+- `app/admin/` — admin authorization, profile queries, export generation/audit, first-admin command
+- `app/agent/` — GovGuideAI Responses API agent, prompt, Web Search and tool activity
+- `app/auth/` — OTP flow, providers, validation, legacy password login, guest sessions
+- `app/database/` — SQLite connection and safe in-place migrations
+- `app/profiles/` — profile setup, editing, deletion and language settings
+- `app/tools/` — official-source Scheme Search and Word Count
+- `app/voice/` — voice transcription and speech endpoints
+- `templates/admin/` — protected admin dashboard UI
+- `static/` — local UI styles, chat, voice, authentication and multilingual JavaScript
+- `tests/` — OTP, provider, admin/export, privacy and regression tests
+- `docs/` — architecture, authentication, admin, database, data-flow and privacy notes
 
-The first-time language screen saves the selected language in browser localStorage. After login or profile setup, the selected language is saved in the user's profile. The selected language is sent with every chat request and is used for UI labels, greeting text, transcription hints, agent answers, and spoken responses.
+## Privacy and Git safety
 
-If a translation key is missing, the UI falls back to English.
+SQLite remains the source of truth. User records are not mirrored into public JSON/CSV files, browser JavaScript, logs, Git, or the AI. Only profile fields relevant to the current user's question are sent for personalization.
 
-## Profile Simplification
-
-The app now uses one stable `occupation` value instead of separate student, farmer, and employment-status fields. Existing old SQLite columns are preserved for compatibility but are no longer used in forms, agent context, or Scheme Search parameters.
-
-Old missing occupation values are mapped safely when possible:
-
-- student status -> `student`
-- farmer status -> `farmer`
-- unemployed employment status -> `unemployed`
-
-Existing accounts and profiles are not deleted.
+`.gitignore` excludes `.env`, the current database, `instance/*.db`, `exports/`, CSV files, user export JSON/CSV files, logs, environments, and caches. Existing databases are never automatically deleted or untracked.

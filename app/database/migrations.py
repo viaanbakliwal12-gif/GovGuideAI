@@ -22,11 +22,22 @@ def apply_migrations(db: sqlite3.Connection) -> None:
     )
 
     _create_or_upgrade_users(db)
+    _ensure_column(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(db, "users", "deleted_at", "TEXT")
     _create_profiles(db)
     _ensure_column(db, "profiles", "occupation_custom", "TEXT")
     _migrate_legacy_occupation_values(db)
     _create_auth_tables(db)
+    _ensure_column(
+        db,
+        "otp_challenges",
+        "delivery_method",
+        "TEXT NOT NULL DEFAULT 'local'",
+    )
+    _ensure_column(db, "otp_challenges", "provider_reference", "TEXT")
+    _create_admin_tables(db)
     _record_migration(db, 1, "otp_and_guest_auth")
+    _record_migration(db, 2, "admin_profiles_and_provider_tracking")
 
 
 def _create_or_upgrade_users(db: sqlite3.Connection) -> None:
@@ -69,17 +80,19 @@ def _create_or_upgrade_users(db: sqlite3.Connection) -> None:
         if "last_login_at" in column_names
         else "last_login_date"
     )
+    is_admin = "COALESCE(is_admin, 0)" if "is_admin" in column_names else "0"
+    deleted_at = "deleted_at" if "deleted_at" in column_names else "NULL"
     db.execute(
         f"""
         INSERT INTO users_migrated (
             id, email, password_hash, created_date, last_login_date,
             verified_email, verified_phone, email_verified_at,
-            phone_verified_at, created_at, last_login_at
+            phone_verified_at, created_at, last_login_at, is_admin, deleted_at
         )
         SELECT
             id, email, password_hash, created_date, last_login_date,
             {verified_email}, {verified_phone}, {email_verified_at},
-            {phone_verified_at}, {created_at}, {last_login_at}
+            {phone_verified_at}, {created_at}, {last_login_at}, {is_admin}, {deleted_at}
         FROM users
         """
     )
@@ -102,6 +115,8 @@ def _create_users_table(db: sqlite3.Connection, table_name: str) -> None:
             phone_verified_at TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_login_at TEXT,
+            is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+            deleted_at TEXT,
             CHECK (email IS NOT NULL OR verified_email IS NOT NULL OR verified_phone IS NOT NULL)
         )
         """
@@ -154,7 +169,9 @@ def _create_auth_tables(db: sqlite3.Connection) -> None:
             used_at TEXT,
             created_at TEXT NOT NULL,
             last_sent_at TEXT NOT NULL,
-            requested_ip_hash TEXT NOT NULL
+            requested_ip_hash TEXT NOT NULL,
+            delivery_method TEXT NOT NULL DEFAULT 'local',
+            provider_reference TEXT
         );
 
         CREATE INDEX IF NOT EXISTS idx_otp_destination_created
@@ -174,6 +191,23 @@ def _create_auth_tables(db: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_guest_expiry
             ON guest_sessions(expires_at);
+        """
+    )
+
+
+def _create_admin_tables(db: sqlite3.Connection) -> None:
+    db.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS export_audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_user_id INTEGER NOT NULL,
+            exported_at TEXT NOT NULL,
+            file_format TEXT NOT NULL CHECK (file_format IN ('csv', 'json')),
+            record_count INTEGER NOT NULL CHECK (record_count >= 0)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_export_audit_admin_time
+            ON export_audit_log(admin_user_id, exported_at);
         """
     )
 

@@ -48,7 +48,7 @@ def authenticate_user(email: str, password: str) -> User | None:
         row = db.execute(
             """
             SELECT * FROM users
-            WHERE email = ? OR verified_email = ?
+            WHERE deleted_at IS NULL AND (email = ? OR verified_email = ?)
             ORDER BY CASE WHEN verified_email = ? THEN 0 ELSE 1 END, id
             LIMIT 1
             """,
@@ -74,7 +74,10 @@ def authenticate_user(email: str, password: str) -> User | None:
 
 def get_user_by_id(user_id: int) -> User | None:
     with get_connection() as db:
-        row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = db.execute(
+            "SELECT * FROM users WHERE id = ? AND deleted_at IS NULL",
+            (user_id,),
+        ).fetchone()
 
     if row is None:
         return None
@@ -92,6 +95,8 @@ def user_from_row(row) -> User:
         verified_phone=row["verified_phone"],
         email_verified_at=row["email_verified_at"],
         phone_verified_at=row["phone_verified_at"],
+        is_admin=bool(row["is_admin"]),
+        deleted_at=row["deleted_at"],
     )
 
 
