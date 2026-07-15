@@ -16,11 +16,10 @@ from app.database.session import get_connection
 
 ACCOUNT_TYPE_SQL = """
 CASE
-    WHEN u.verified_email IS NOT NULL AND u.verified_phone IS NOT NULL THEN 'email + phone'
-    WHEN u.verified_phone IS NOT NULL THEN 'phone'
-    WHEN u.verified_email IS NOT NULL THEN 'email'
-    WHEN u.password_hash IS NOT NULL THEN 'password'
-    ELSE 'account'
+    WHEN u.password_hash IS NOT NULL AND TRIM(u.password_hash) <> '' THEN 'email + password'
+    WHEN COALESCE(u.email, u.verified_email) IS NOT NULL THEN 'password setup needed'
+    WHEN u.verified_phone IS NOT NULL THEN 'legacy phone account'
+    ELSE 'legacy account'
 END
 """
 
@@ -28,8 +27,9 @@ PROFILE_SELECT_SQL = f"""
 SELECT
     u.id AS user_id,
     {ACCOUNT_TYPE_SQL} AS account_type,
-    u.verified_email AS email,
+    COALESCE(u.email, u.verified_email) AS email,
     u.verified_phone AS phone,
+    CASE WHEN u.password_hash IS NULL OR TRIM(u.password_hash) = '' THEN 0 ELSE 1 END AS has_password,
     p.full_name,
     p.age,
     p.state,
@@ -54,7 +54,7 @@ LEFT JOIN profiles p ON p.user_id = u.id
 SORT_COLUMNS = {
     "user_id": "u.id",
     "account_type": ACCOUNT_TYPE_SQL,
-    "email": "u.verified_email",
+    "email": "COALESCE(u.email, u.verified_email)",
     "phone": "u.verified_phone",
     "full_name": "p.full_name",
     "age": "p.age",
@@ -78,7 +78,7 @@ SORT_COLUMNS = {
 SEARCH_SQL = """
 AND (
     CAST(u.id AS TEXT) LIKE ?
-    OR LOWER(COALESCE(u.verified_email, '')) LIKE ?
+    OR LOWER(COALESCE(u.email, u.verified_email, '')) LIKE ?
     OR COALESCE(u.verified_phone, '') LIKE ?
     OR LOWER(COALESCE(p.full_name, '')) LIKE ?
     OR LOWER(COALESCE(p.age, '')) LIKE ?
@@ -246,31 +246,36 @@ def first_admin_setup_completed() -> bool:
         )
 
 
-def user_has_verified_identifier(user: User | None) -> bool:
-    return bool(
-        user
-        and (
-            (user.verified_email and user.email_verified_at)
-            or (user.verified_phone and user.phone_verified_at)
-        )
-    )
+def user_has_password_login(user: User | None) -> bool:
+    if user is None or not (user.email or user.verified_email):
+        return False
+    with get_connection() as db:
+        row = db.execute(
+            """
+            SELECT 1 FROM users
+            WHERE id = ? AND deleted_at IS NULL
+              AND password_hash IS NOT NULL AND TRIM(password_hash) <> ''
+            """,
+            (int(user.id),),
+        ).fetchone()
+    return row is not None
 
 
 def admin_setup_available_for_user(user: User | None) -> bool:
-    if not is_development_environment() or not user_has_verified_identifier(user):
+    if not is_development_environment() or not user_has_password_login(user):
         return False
     return not first_admin_setup_completed()
 
 
 def admin_setup_account_label(user: User) -> str:
-    if user.verified_email:
-        return mask_destination(user.verified_email, "email")
+    if user.email or user.verified_email:
+        return mask_destination(user.email or user.verified_email, "email")
     if user.verified_phone:
         return mask_destination(user.verified_phone, "sms")
-    return "Verified GovGuideAI account"
+    return "GovGuideAI account"
 
 
-def promote_first_verified_admin(user_id: int, confirmation: str) -> None:
+def promote_first_password_admin(user_id: int, confirmation: str) -> None:
     if str(confirmation or "").strip() != FIRST_ADMIN_CONFIRMATION:
         raise AdminSetupError(f'Type "{FIRST_ADMIN_CONFIRMATION}" to confirm.')
 
@@ -288,17 +293,14 @@ def promote_first_verified_admin(user_id: int, confirmation: str) -> None:
             """
             SELECT id FROM users
             WHERE id = ? AND deleted_at IS NULL
-              AND (
-                (verified_email IS NOT NULL AND email_verified_at IS NOT NULL)
-                OR
-                (verified_phone IS NOT NULL AND phone_verified_at IS NOT NULL)
-              )
+              AND COALESCE(email, verified_email) IS NOT NULL
+              AND password_hash IS NOT NULL AND TRIM(password_hash) <> ''
             LIMIT 1
             """,
             (int(user_id),),
         ).fetchone()
         if user is None:
-            raise AdminSetupError("A logged-in verified account is required.")
+            raise AdminSetupError("A logged-in password account is required.")
 
         db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (int(user_id),))
         db.execute(
@@ -341,7 +343,7 @@ def record_export_audit(
         )
 
 
-def promote_verified_admin(email: str) -> tuple[int, bool]:
+def promote_password_admin(email: str) -> tuple[int, bool]:
     configured_email = os.getenv("ADMIN_EMAIL", "").strip()
     if not configured_email:
         raise AdminPromotionError("ADMIN_EMAIL is not configured on the server.")
@@ -357,15 +359,19 @@ def promote_verified_admin(email: str) -> tuple[int, bool]:
         row = db.execute(
             """
             SELECT id, is_admin FROM users
-            WHERE verified_email = ? AND email_verified_at IS NOT NULL
-              AND deleted_at IS NULL
+            WHERE deleted_at IS NULL
+              AND password_hash IS NOT NULL AND TRIM(password_hash) <> ''
+              AND (
+                LOWER(COALESCE(email, '')) = ?
+                OR LOWER(COALESCE(verified_email, '')) = ?
+              )
             LIMIT 1
             """,
-            (requested,),
+            (requested, requested),
         ).fetchone()
         if row is None:
             raise AdminPromotionError(
-                "No active user with that verified email exists. Verify it through login first."
+                "No active password account with that email exists."
             )
         already_admin = bool(row["is_admin"])
         if not already_admin:

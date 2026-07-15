@@ -1,92 +1,27 @@
-# Authentication and OTP Configuration
+# Authentication
 
-## What verification proves
+## Active website flow
 
-GovGuideAI validates syntax before sending a code and marks an identifier verified only after a successful one-time-code check. Delivery failure is not described as proof that an address or phone number is fake.
+GovGuideAI currently uses email and password authentication. OTP verification is temporarily disabled and may be reintroduced later.
 
-At startup the server logs only this safe status summary, never secret values:
+Sign-up validates and normalizes the email, requires a password of 10 to 128 characters containing at least one letter and one number, checks confirmation, prevents duplicate active emails, hashes the password with Werkzeug `scrypt`, creates a secure session, and redirects to profile setup.
 
-```text
-Environment: development
-Development OTP mode: enabled
-Email provider: not required in development
-SMS provider: not required in development
-Admin accounts: 0
-```
+Login normalizes the email and checks the stored hash. Every failure returns the same `Incorrect email or password.` message. Completed users go to chat; users without a profile go to profile setup.
 
-## Local development OTP
+Guest mode uses the existing server-side anonymous sessions. CSRF validation and secure cookie settings apply to authentication forms and registered sessions.
 
-Use this only for local development:
+## Passwordless historical accounts
 
-```text
-FLASK_ENV=development
-APP_ENV=development
-OTP_DEVELOPMENT_MODE=true
-```
+The migration does not modify existing account IDs, profiles, roles, contact fields, or historical hashes. An administrator can create a one-time password setup link from `/admin` for an active account whose `password_hash` is empty.
 
-No email or SMS is sent, and both website tabs remain enabled. The login page clearly states that local verification is active. A fresh random six-digit code is hashed in SQLite and held temporarily in process memory only so the website verification page can show:
+The token secret is random, stored only as a keyed hash, expires after `PASSWORD_SETUP_TOKEN_MINUTES` (30 by default), and is consumed once. Creating a replacement invalidates every earlier unused link. A historical phone-only account chooses a unique email while setting its password.
 
-```text
-Development OTP — not for production
-```
+## Temporarily dormant OTP support
 
-The code is not written to application logs. The app refuses to start if the switch is enabled in production or without an explicit development environment. The old `OTP_TEST_MODE` variable is ignored and cannot reveal codes.
+The following modules remain in the repository for possible future reintroduction but are not imported by active routes or startup:
 
-Enter the displayed code in the normal website field. Returning users are logged in; new users are sent to profile setup. Editing an input, changing email/phone tabs, or starting another request clears the previous form error.
+- `app/auth/otp_service.py`
+- `app/auth/email_provider.py`
+- `app/auth/sms_provider.py`
 
-## Real email with Resend
-
-```text
-OTP_DEVELOPMENT_MODE=false
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=
-EMAIL_FROM_ADDRESS=GovGuideAI <verified-sender@example.com>
-```
-
-The sending address or domain must be verified in Resend. GovGuideAI checks for a successful provider response containing a delivery ID and safely classifies authentication, sender, rejection, rate-limit, network, and provider-availability errors. Provider details remain server-side. Older deployments using SendGrid remain compatible through `EMAIL_PROVIDER=sendgrid`, `EMAIL_API_KEY`, and `EMAIL_FROM_ADDRESS`.
-
-## Real phone with Twilio Verify
-
-Create a Twilio Verify Service, then configure:
-
-```text
-OTP_DEVELOPMENT_MODE=false
-SMS_PROVIDER=twilio
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_VERIFY_SERVICE_SID=
-```
-
-Phone input is parsed with `phonenumbers`, validated for the selected country, and normalized to E.164. Twilio Verify generates and delivers the code and checks the submitted code. GovGuideAI still records expiry, attempts, cooldown/rate limits, one-time use, and provider challenge state without storing the Twilio code. When possible, an earlier active Twilio verification is canceled before a replacement is sent.
-
-## OTP security settings
-
-Recommended production values:
-
-```text
-FLASK_ENV=production
-APP_ENV=production
-OTP_DEVELOPMENT_MODE=false
-OTP_EXPIRY_MINUTES=10
-OTP_MAX_ATTEMPTS=5
-OTP_RESEND_COOLDOWN_SECONDS=60
-OTP_MAX_REQUESTS_PER_DESTINATION=5
-OTP_MAX_REQUESTS_PER_IP=20
-OTP_PEPPER=<separate long random secret>
-OTP_DESTINATION_KEY=<Fernet key>
-```
-
-Generate secrets without placing them in source control:
-
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-If `OTP_DESTINATION_KEY` is omitted, GovGuideAI derives one from `SECRET_KEY`. Changing either key while challenges are active makes those short-lived challenges unreadable, so users must request a new code.
-
-OTP requests are limited by one-way destination and IP hashes. Codes expire, have limited attempts, obey resend cooldown, are invalidated on replacement, and are invalidated after successful use. SQLite stores a salted/peppered hash for locally generated codes, never the plaintext code.
-
-## Guest expiry
-
-`GUEST_SESSION_TTL_HOURS=24` controls server-record lifetime. Guest sessions do not create a user or profile and retain only temporary, process-local conversation memory.
+The historical `otp_challenges` table and identifier columns remain untouched. `/auth/request-code`, `/verify`, and `/auth/resend-code` are not registered routes. No provider configuration is checked, and no OTP values or controls are rendered by the website.

@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from functools import wraps
+import sqlite3
 
 from flask import jsonify, redirect, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.auth.validators import IdentifierValidationError, normalize_email
+from app.auth.validators import (
+    IdentifierValidationError,
+    normalize_email,
+    password_validation_error,
+)
 from app.database.models import User
 from app.database.session import get_connection
 
@@ -15,27 +20,57 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def create_user(email: str, password: str) -> tuple[bool, str]:
+class AccountCreationError(ValueError):
+    def __init__(self, field: str, message: str):
+        super().__init__(message)
+        self.field = field
+        self.message = message
+
+
+def create_user(email: str, password: str) -> User:
     try:
         email = normalize_email(email)
     except IdentifierValidationError:
-        return False, "Enter a valid email address."
-    if len(password) < 8:
-        return False, "Use at least 8 characters for your password."
+        raise AccountCreationError("email", "Enter a valid email address.") from None
+    password_error = password_validation_error(password)
+    if password_error:
+        raise AccountCreationError("password", password_error)
 
     try:
         with get_connection() as db:
+            existing = db.execute(
+                """
+                SELECT 1 FROM users
+                WHERE deleted_at IS NULL
+                  AND (
+                    LOWER(COALESCE(email, '')) = ?
+                    OR LOWER(COALESCE(verified_email, '')) = ?
+                  )
+                LIMIT 1
+                """,
+                (email, email),
+            ).fetchone()
+            if existing is not None:
+                raise AccountCreationError(
+                    "email", "An account with this email already exists."
+                )
+            now = utc_now()
             db.execute(
                 """
                 INSERT INTO users (
                     email, password_hash, created_date, created_at
                 ) VALUES (?, ?, ?, ?)
                 """,
-                (email, generate_password_hash(password), utc_now(), utc_now()),
+                (email, _password_hash(password), now, now),
             )
-        return True, "Account created. Please log in."
-    except Exception:
-        return False, "An account with this email may already exist."
+            row = db.execute(
+                "SELECT * FROM users WHERE id = last_insert_rowid()"
+            ).fetchone()
+        return user_from_row(row)
+    except sqlite3.IntegrityError:
+        raise AccountCreationError(
+            "email", "An account with this email already exists."
+        ) from None
 
 
 def authenticate_user(email: str, password: str) -> User | None:
@@ -48,8 +83,12 @@ def authenticate_user(email: str, password: str) -> User | None:
         row = db.execute(
             """
             SELECT * FROM users
-            WHERE deleted_at IS NULL AND (email = ? OR verified_email = ?)
-            ORDER BY CASE WHEN verified_email = ? THEN 0 ELSE 1 END, id
+            WHERE deleted_at IS NULL
+              AND (
+                LOWER(COALESCE(email, '')) = ?
+                OR LOWER(COALESCE(verified_email, '')) = ?
+              )
+            ORDER BY CASE WHEN LOWER(COALESCE(email, '')) = ? THEN 0 ELSE 1 END, id
             LIMIT 1
             """,
             (normalized_email, normalized_email, normalized_email),
@@ -164,3 +203,9 @@ def is_guest() -> bool:
 def delete_user(user_id: int) -> None:
     with get_connection() as db:
         db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+def _password_hash(password: str) -> str:
+    """Use Werkzeug's memory-hard scrypt format explicitly for new passwords."""
+
+    return generate_password_hash(password, method="scrypt")

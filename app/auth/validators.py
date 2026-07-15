@@ -31,6 +31,28 @@ def normalize_email(value: str) -> str:
     return result.normalized.lower()
 
 
+def password_validation_error(value: str) -> str | None:
+    """Return a concise password error without ever logging the password."""
+
+    password = str(value or "")
+    if len(password) < 10:
+        return "Use at least 10 characters for your password."
+    if len(password) > 128:
+        return "Use no more than 128 characters for your password."
+    if not any(character.isalpha() for character in password) or not any(
+        character.isdigit() for character in password
+    ):
+        return "Include at least one letter and one number."
+    if password.casefold() in {
+        "password123",
+        "password1234",
+        "qwerty12345",
+        "govguideai123",
+    }:
+        return "Choose a less common password."
+    return None
+
+
 def normalize_phone_number(value: str, country_code: str | None = None) -> str:
     raw_value = str(value or "").strip()
     region = str(country_code or "").strip().upper() or None

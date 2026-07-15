@@ -30,7 +30,6 @@ from app.agent import AgentActivity, AgentResponse, GovernmentHelpAgent
 from app.admin import admin_bp
 from app.admin.services import admin_setup_available_for_user, count_admin_accounts
 from app.auth import auth_bp
-from app.auth.otp_service import otp_configuration_status
 from app.auth.services import (
     assistant_access_required,
     current_subject_key,
@@ -75,24 +74,8 @@ def create_app() -> Flask:
     ).strip().lower() in {"production", "prod"}
     init_security(app)
     init_db()
-    otp_status = otp_configuration_status()
     app.logger.info("Environment: %s", application_environment())
-    app.logger.info(
-        "Development OTP mode: %s",
-        "enabled" if otp_status.development_mode else "disabled",
-    )
-    app.logger.info(
-        "Email provider: %s",
-        "not required in development"
-        if otp_status.development_mode
-        else "configured" if otp_status.email_configured else "not configured",
-    )
-    app.logger.info(
-        "SMS provider: %s",
-        "not required in development"
-        if otp_status.development_mode
-        else "configured" if otp_status.sms_configured else "not configured",
-    )
+    app.logger.info("Authentication: email and password")
     app.logger.info("Admin accounts: %d", count_admin_accounts())
 
     app.register_blueprint(auth_bp)

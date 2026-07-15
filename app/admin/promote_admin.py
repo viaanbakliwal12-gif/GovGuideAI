@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from app.admin.services import (
     AdminPromotionError,
-    promote_verified_admin,
+    promote_password_admin,
     safe_promotion_label,
 )
 from app.database.session import init_db
@@ -15,15 +15,15 @@ from app.database.session import init_db
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Promote the verified user matching ADMIN_EMAIL to GovGuideAI admin."
+        description="Promote the password user matching ADMIN_EMAIL to GovGuideAI admin."
     )
-    parser.add_argument("email", help="The verified email that must match ADMIN_EMAIL")
+    parser.add_argument("email", help="The account email that must match ADMIN_EMAIL")
     arguments = parser.parse_args()
 
     load_dotenv()
     init_db()
     try:
-        user_id, changed = promote_verified_admin(arguments.email)
+        user_id, changed = promote_password_admin(arguments.email)
     except AdminPromotionError as error:
         print(f"Admin promotion refused: {error}", file=sys.stderr)
         return 1

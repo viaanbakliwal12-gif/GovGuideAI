@@ -18,7 +18,7 @@ class User:
 
     @property
     def display_identifier(self) -> str:
-        return self.verified_email or self.verified_phone or self.email or "GovGuideAI user"
+        return self.email or self.verified_email or self.verified_phone or "GovGuideAI user"
 
 
 @dataclass(frozen=True)

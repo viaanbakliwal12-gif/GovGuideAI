@@ -21,10 +21,11 @@ from app.admin.services import (
     fetch_dashboard_summary,
     fetch_profile_page,
     first_admin_setup_completed,
-    promote_first_verified_admin,
+    promote_first_password_admin,
     record_export_audit,
-    user_has_verified_identifier,
+    user_has_password_login,
 )
+from app.auth.password_setup import PasswordSetupError, create_password_setup_token
 from app.auth.services import current_user
 from app.config import is_development_environment
 
@@ -72,7 +73,7 @@ def setup():
 def setup_post():
     user = _first_admin_setup_user()
     try:
-        promote_first_verified_admin(
+        promote_first_password_admin(
             user.id,
             request.form.get("confirmation", ""),
         )
@@ -91,6 +92,24 @@ def setup_post():
 
     flash("Administrator access is ready. This first-admin setup page is now disabled.", "success")
     return redirect(url_for("admin.dashboard"))
+
+
+@admin_bp.post("/users/<int:user_id>/password-setup")
+@admin_required
+def create_password_setup(user_id: int):
+    user = current_user()
+    try:
+        setup = create_password_setup_token(user_id, user.id)
+    except PasswordSetupError as error:
+        flash(error.message, "error")
+        return redirect(url_for("admin.dashboard"))
+
+    return render_template(
+        "admin/password_setup_created.html",
+        account_label=setup.account_label,
+        expires_at=setup.expires_at,
+        setup_url=url_for("auth.set_password", token=setup.token, _external=True),
+    )
 
 
 @admin_bp.post("/export/<file_format>")
@@ -139,7 +158,7 @@ def _first_admin_setup_user():
     if not is_development_environment() or first_admin_setup_completed():
         abort(404)
     user = current_user()
-    if user is None or not user_has_verified_identifier(user):
+    if user is None or not user_has_password_login(user):
         abort(403)
     return user
 

@@ -19,15 +19,32 @@
         </div>
         <div class="auth-intro">
           <h2 id="authTitle" data-i18n="login">Login</h2>
-          <p class="privacy-copy" data-i18n="loginOtpCopy">Verify your email or phone number to securely access your saved profile.</p>
+          <p class="privacy-copy" data-i18n="loginPasswordCopy">Use your email and password to access your saved profile.</p>
         </div>
-        {% if message %}<p class="notice success">{{ message }}</p>{% endif %}
-        {% if error %}<p class="notice error" data-auth-error {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
-        {% include "_auth_methods.html" %}
+
+        {% if message %}<p class="notice success" role="status">{{ message }}</p>{% endif %}
+        {% if error %}<p class="notice error" data-auth-error role="alert" {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
+
+        <form class="stacked-form auth-password-form" method="post" action="{{ url_for('auth.login_post') }}" data-password-form>
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="selected_language" value="en">
+          <label for="loginEmail">
+            <span data-i18n="emailAddress">Email address</span>
+            <input id="loginEmail" name="email" type="email" required autocomplete="email" inputmode="email" value="{{ email }}" data-auth-field>
+          </label>
+          <label for="loginPassword">
+            <span data-i18n="password">Password</span>
+            <input id="loginPassword" name="password" type="password" required autocomplete="current-password" data-auth-field>
+          </label>
+          <button class="primary-button" type="submit" data-i18n="login">Login</button>
+        </form>
+
+        {% include "_guest_option.html" %}
+        <p class="auth-privacy" data-i18n="passwordAuthPrivacy">Your password is securely hashed. GovGuideAI never stores or displays the plain-text password.</p>
         <p class="form-footer"><span data-i18n="newHere">New here?</span> <a href="{{ url_for('auth.signup') }}" data-i18n="createAccount">Create an account</a></p>
       </section>
     </main>
-    <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-language-fix') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-password-auth') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/auth.js', v='20260715-password-auth') }}" defer></script>
   </body>
 </html>

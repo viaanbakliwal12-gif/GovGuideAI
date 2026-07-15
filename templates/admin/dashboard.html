@@ -35,7 +35,7 @@
         <div>
           <p class="eyebrow">Registered user dataset</p>
           <h2>User profiles</h2>
-          <p>Active accounts only. Contact details are masked on screen; authorized exports contain verified values.</p>
+          <p>Active accounts only. Contact details are masked on screen; authorized exports contain account data.</p>
         </div>
         <div class="admin-stat-grid" aria-label="Dataset summary">
           <article class="admin-stat-card">
@@ -79,7 +79,7 @@
           <input type="hidden" name="direction" value="{{ profile_page.direction }}">
           <label for="adminSearch">Search profiles</label>
           <div class="admin-search-row">
-            <input id="adminSearch" name="q" type="search" value="{{ profile_page.query }}" maxlength="200" placeholder="ID, name, verified contact, state, district, occupation">
+            <input id="adminSearch" name="q" type="search" value="{{ profile_page.query }}" maxlength="200" placeholder="ID, name, account email, state, district, occupation">
             <select name="per_page" aria-label="Rows per page">
               {% for size in (10, 25, 50, 100) %}
                 <option value="{{ size }}" {% if profile_page.per_page == size %}selected{% endif %}>{{ size }} rows</option>
@@ -117,8 +117,9 @@
               <tr>
                 <th>{{ sortable('user_id', 'User ID') }}</th>
                 <th>{{ sortable('account_type', 'Account type') }}</th>
-                <th>{{ sortable('email', 'Verified email') }}</th>
-                <th>{{ sortable('phone', 'Verified phone') }}</th>
+                <th>{{ sortable('email', 'Account email') }}</th>
+                <th>{{ sortable('phone', 'Legacy phone') }}</th>
+                <th>Password access</th>
                 <th>{{ sortable('full_name', 'Full name') }}</th>
                 <th>{{ sortable('age', 'Age / DOB') }}</th>
                 <th>{{ sortable('state', 'State / UT') }}</th>
@@ -143,8 +144,18 @@
                 <tr>
                   <td data-label="User ID">{{ record.user_id }}</td>
                   <td data-label="Account type">{{ record.account_type }}</td>
-                  <td data-label="Verified email">{{ record.email_display }}</td>
-                  <td data-label="Verified phone">{{ record.phone_display }}</td>
+                  <td data-label="Account email">{{ record.email_display }}</td>
+                  <td data-label="Legacy phone">{{ record.phone_display }}</td>
+                  <td data-label="Password access">
+                    {% if record.has_password %}
+                      <span class="status-pill complete">Ready</span>
+                    {% else %}
+                      <form method="post" action="{{ url_for('admin.create_password_setup', user_id=record.user_id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-button" type="submit">Create setup link</button>
+                      </form>
+                    {% endif %}
+                  </td>
                   <td data-label="Full name">{{ record.full_name or '—' }}</td>
                   <td data-label="Age / DOB">{{ record.age or '—' }}</td>
                   <td data-label="State / UT">{{ record.state or '—' }}</td>
@@ -164,7 +175,7 @@
                   <td data-label="Profile updated"><time datetime="{{ record.updated_at or '' }}">{{ record.updated_at or '—' }}</time></td>
                 </tr>
               {% else %}
-                <tr><td class="admin-empty" colspan="21">No matching active user profiles were found.</td></tr>
+                <tr><td class="admin-empty" colspan="22">No matching active user profiles were found.</td></tr>
               {% endfor %}
             </tbody>
           </table>

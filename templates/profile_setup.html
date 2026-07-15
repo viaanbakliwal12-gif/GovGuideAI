@@ -17,10 +17,10 @@
             <h1 data-i18n="createProfile">Create Your Profile</h1>
           </div>
         </div>
-        <p class="privacy-copy" data-i18n="profileSetupCopy">This helps GovGuideAI suggest schemes and services without asking you to repeat basic details. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
+        <p class="privacy-copy" data-i18n="profileSetupCopy">This helps GovGuideAI suggest schemes and services without asking you to repeat basic details. Do not enter Aadhaar, PAN, bank details, security codes, or exact home address.</p>
         <details class="privacy-details">
           <summary data-i18n="profilePrivacyDetailsTitle">How profile information is handled</summary>
-          <p data-i18n="profilePrivacyDetails">Your profile is stored for personalized recommendations, may be accessed only by authorized administration, and is not used for advertising. You can edit or delete your profile or account. Do not enter Aadhaar numbers, bank details, passwords, OTPs, or other highly sensitive information.</p>
+          <p data-i18n="profilePrivacyDetails">Your profile is stored for personalized recommendations, may be accessed only by authorized administration, and is not used for advertising. You can edit or delete your profile or account. Do not enter Aadhaar numbers, bank details, passwords, security codes, or other highly sensitive information.</p>
         </details>
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="profile-form" method="post" action="{{ url_for('profiles.setup_profile_post') }}">

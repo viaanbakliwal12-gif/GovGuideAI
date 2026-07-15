@@ -37,9 +37,11 @@ def apply_migrations(db: sqlite3.Connection) -> None:
     _ensure_column(db, "otp_challenges", "provider_reference", "TEXT")
     _create_admin_tables(db)
     _create_admin_setup_state(db)
+    _create_password_setup_tokens(db)
     _record_migration(db, 1, "otp_and_guest_auth")
     _record_migration(db, 2, "admin_profiles_and_provider_tracking")
     _record_migration(db, 3, "website_first_admin_setup")
+    _record_migration(db, 4, "password_auth_and_legacy_account_setup")
 
 
 def _create_or_upgrade_users(db: sqlite3.Connection) -> None:
@@ -242,6 +244,30 @@ def _create_admin_setup_state(db: sqlite3.Connection) -> None:
             """,
             (_utc_now(), int(existing_admin["id"])),
         )
+
+
+def _create_password_setup_tokens(db: sqlite3.Connection) -> None:
+    """Keep passwordless legacy accounts recoverable without reactivating OTP."""
+
+    db.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS password_setup_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            public_id TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            token_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at TEXT,
+            created_by_admin_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by_admin_id) REFERENCES users(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_password_setup_user
+            ON password_setup_tokens(user_id, used_at, expires_at);
+        """
+    )
 
 
 def _ensure_column(

@@ -1,0 +1,18 @@
+<div class="auth-divider"><span data-i18n="or">or</span></div>
+
+<section class="guest-option" aria-labelledby="guestTitle">
+  <form method="post" action="{{ url_for('auth.continue_as_guest') }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="selected_language" value="en">
+    <button id="guestTitle" class="guest-button" type="submit" data-i18n="continueAsGuest">Continue as Guest</button>
+  </form>
+  <p data-i18n="guestExplanation">You can use GovGuideAI without creating an account. Recommendations may be less personalized, and your profile and chat history may not be saved.</p>
+  <details class="guest-limitations">
+    <summary data-i18n="reducedPersonalization">Reduced personalization</summary>
+    <ul>
+      <li data-i18n="noPermanentProfile">No permanent profile</li>
+      <li data-i18n="noSavedHistory">No permanent saved chat history or cross-device access</li>
+      <li data-i18n="temporaryMemoryOnly">Temporary conversation memory only</li>
+    </ul>
+  </details>
+</section>

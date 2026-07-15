@@ -8,8 +8,9 @@ GovGuideAI keeps the existing Flask application and organizes new features into 
 - `app/config.py` loads the project `.env` before services inspect configuration and classifies development/production safely.
 - `app/server.py` creates the Flask app, registers route groups, initializes SQLite, and exposes the chat API.
 - `app/agent/` contains the OpenAI Responses API setup, system prompt, tool schema, and response model.
-- `app/auth/` contains guest sessions, password compatibility, OTP orchestration,
-  identifier validation, provider adapters, login/logout, and account deletion.
+- `app/auth/` contains active email/password login, secure password setup links,
+  guest sessions, validation, logout, and account deletion. Dormant provider
+  modules remain isolated for a possible future OTP reintroduction.
 - `app/admin/` contains admin authorization, one-time website setup, summary/profile queries, in-memory exports, export auditing, and an optional backup promotion command.
 - `app/profiles/` contains profile setup, editing, deletion, language saving, and database helpers.
 - `app/database/` contains SQLite connection setup, table creation, and compatibility updates.
@@ -25,9 +26,9 @@ GovGuideAI keeps the existing Flask application and organizes new features into 
 The frontend stays in `templates/` and `static/`. The OpenAI API key stays server-side in `.env`. Voice mode does not create a separate assistant; it transcribes speech, sends text through the existing `/api/chat` route, and speaks the returned answer.
 
 Guest and logged-in sessions share the same chat, agent, tool, language, and
-voice paths. Only identity/profile lookup differs. OTP delivery is isolated in
-email/SMS provider modules, and the browser never receives provider credentials
-or sends verification messages itself.
+voice paths. Only identity/profile lookup differs. The browser submits account
+passwords only to Flask over the normal form route; it never receives stored
+hashes or server credentials.
 
 `app/security.py` supplies per-session CSRF tokens and secure cookie defaults.
 All state-changing forms and browser API requests send the CSRF token.
@@ -36,6 +37,6 @@ The admin blueprint uses the same CSRF layer plus an independent server-side
 `is_admin` check on every route. Export content is built only for an authorized
 request and never written under `static/`.
 
-`/admin/setup` is a development-only bootstrap route. It requires a verified
-logged-in user, succeeds only while no first-admin completion record exists,
+`/admin/setup` is a development-only bootstrap route. It requires a logged-in
+password account, succeeds only while no first-admin completion record exists,
 and atomically writes both the role and permanent setup marker.

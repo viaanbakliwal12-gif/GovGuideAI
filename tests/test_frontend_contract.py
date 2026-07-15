@@ -8,20 +8,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class FrontendContractTests(unittest.TestCase):
-    def test_authentication_states_share_one_responsive_component(self) -> None:
-        partial = (ROOT / "templates" / "_auth_methods.html").read_text(encoding="utf-8")
-        verification = (ROOT / "templates" / "verify_otp.html").read_text(encoding="utf-8")
+    def test_authentication_pages_use_complete_password_forms(self) -> None:
+        login = (ROOT / "templates" / "login.html").read_text(encoding="utf-8")
+        signup = (ROOT / "templates" / "signup.html").read_text(encoding="utf-8")
+        guest = (ROOT / "templates" / "_guest_option.html").read_text(encoding="utf-8")
         script = (ROOT / "static" / "js" / "auth.js").read_text(encoding="utf-8")
 
-        self.assertIn('data-auth-tab="email"', partial)
-        self.assertIn('data-auth-tab="phone"', partial)
-        self.assertIn('data-auth-panel="email"', partial)
-        self.assertIn('data-auth-panel="phone"', partial)
-        self.assertIn("Continue as Guest", partial)
-        self.assertIn("autocomplete=\"one-time-code\"", verification)
-        self.assertIn("data-resend-form", verification)
-        self.assertIn("replace(/\\D/g", script)
-        self.assertIn("clipboardData", script)
+        self.assertIn('autocomplete="current-password"', login)
+        self.assertIn('name="confirm_password"', signup)
+        self.assertIn('autocomplete="new-password"', signup)
+        self.assertIn("Continue as Guest", guest)
+        self.assertIn("data-confirm-password", script)
+        self.assertIn("Passwords do not match", script)
+        self.assertFalse((ROOT / "templates" / "verify_otp.html").exists())
+        self.assertFalse((ROOT / "templates" / "_auth_methods.html").exists())
 
     def test_mobile_css_has_no_fixed_desktop_squeeze_contract(self) -> None:
         css = (ROOT / "static" / "css" / "styles.css").read_text(encoding="utf-8")
@@ -44,20 +44,12 @@ class FrontendContractTests(unittest.TestCase):
         required_keys = (
             "continueAsGuest",
             "reducedPersonalization",
-            "continueWithEmail",
-            "continueWithPhone",
-            "country",
-            "phoneNumber",
-            "sendCode",
-            "enterVerificationCode",
-            "verify",
-            "resendCode",
-            "codeExpired",
-            "incorrectOrExpiredCode",
-            "changeEmail",
-            "changePhoneNumber",
+            "loginPasswordCopy",
+            "signupPasswordCopy",
+            "confirmPassword",
+            "passwordHelp",
+            "passwordMismatch",
             "createAccountToSave",
-            "localDevelopmentVerification",
             "adminDashboard",
             "administratorSetup",
         )
@@ -72,6 +64,7 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("Make this account the administrator", setup)
         self.assertIn('name="confirmation"', setup)
         self.assertIn("Recent accounts", dashboard)
+        self.assertIn("Create setup link", dashboard)
         self.assertIn("data-export-form", dashboard)
         self.assertIn("Preparing ${format} download", script)
 

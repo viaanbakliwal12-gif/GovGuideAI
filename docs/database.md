@@ -67,9 +67,9 @@ On startup, `init_db()` ensures `occupation_custom` exists. It also maps old val
 
 Existing occupation values are not overwritten except for simple normalization such as `Student` -> `student`.
 
-## OTP and Guest Tables
+## Authentication and Guest Tables
 
-`otp_challenges` stores a public random challenge reference, HMAC destination
+`otp_challenges` is historical and currently unused. It stores a public random challenge reference, HMAC destination
 hash, encrypted destination, channel, purpose, salted/peppered OTP hash, expiry,
 attempt/resend counters, use time, send time, and an HMAC IP hash. It never
 stores a plaintext OTP.
@@ -104,6 +104,16 @@ It does not contain credentials or profile data. The marker prevents the local
 setup page from reopening if the original administrator account is later
 deleted. Migration version 3 creates this table in place and preserves all
 existing users, profiles, IDs, and application data.
+
+`password_setup_tokens` supports passwordless historical accounts and stores:
+
+- a public random reference;
+- a keyed hash of the secret token;
+- target user and creating administrator IDs;
+- creation, expiry, and one-time use timestamps.
+
+It never stores the complete link or a temporary password. Migration version 4
+adds this table without modifying existing user or profile rows.
 
 Run migrations explicitly with:
 
