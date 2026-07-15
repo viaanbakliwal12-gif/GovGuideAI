@@ -91,6 +91,8 @@
             <a class="nav-link" href="{{ url_for('auth.login') }}" data-i18n="login">Login</a>
             <a class="nav-link nav-link-primary" href="{{ url_for('auth.signup') }}" data-i18n="createAccount">Create Account</a>
           {% else %}
+            {% if show_admin_dashboard_link %}<a class="nav-link" href="{{ url_for('admin.dashboard') }}" data-i18n="adminDashboard">Admin Dashboard</a>{% endif %}
+            {% if show_admin_setup_link %}<a class="nav-link nav-link-primary" href="{{ url_for('admin.setup') }}" data-i18n="administratorSetup">Administrator Setup</a>{% endif %}
             <a class="nav-link" href="{{ url_for('profiles.profile') }}" data-i18n="editProfile">Edit Profile</a>
             <form method="post" action="{{ url_for('auth.logout') }}">
               <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

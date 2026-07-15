@@ -29,6 +29,7 @@ from app.auth.sms_provider import (
     verify_sms_otp,
 )
 from app.auth.validators import mask_destination, normalize_email, normalize_phone_number
+from app.config import environment_values
 from app.database.models import OTPChallenge, User
 from app.database.session import get_connection
 
@@ -347,11 +348,7 @@ def development_otp_mode_enabled() -> bool:
     if not enabled:
         return False
 
-    environments = {
-        value.strip().lower()
-        for value in (os.getenv("APP_ENV", ""), os.getenv("FLASK_ENV", ""))
-        if value.strip()
-    }
+    environments = environment_values()
     if environments & {"production", "prod"}:
         raise RuntimeError(
             "OTP_DEVELOPMENT_MODE cannot be enabled when the application is in production."

@@ -9,6 +9,7 @@
       aria-controls="emailPanel"
       data-auth-tab="email"
       data-i18n="continueWithEmail"
+      {% if not auth_availability.email %}disabled aria-disabled="true"{% endif %}
     >Continue with email</button>
     <button
       id="phoneTab"
@@ -19,8 +20,18 @@
       aria-controls="phonePanel"
       data-auth-tab="phone"
       data-i18n="continueWithPhone"
+      {% if not auth_availability.phone %}disabled aria-disabled="true"{% endif %}
     >Continue with phone</button>
   </div>
+
+  {% if development_otp_mode %}
+    <p class="local-development-notice" role="status" data-i18n="localDevelopmentVerification">Local development verification is enabled. No real email or SMS will be sent.</p>
+  {% else %}
+    <div class="method-availability-notices" aria-live="polite">
+      {% if not auth_availability.email %}<p class="method-unavailable" data-i18n="emailUnavailable">Email verification is temporarily unavailable.</p>{% endif %}
+      {% if not auth_availability.phone %}<p class="method-unavailable" data-i18n="phoneUnavailable">Phone verification is temporarily unavailable.</p>{% endif %}
+    </div>
+  {% endif %}
 
   <form class="stacked-form auth-code-form" method="post" action="{{ url_for('auth.request_code') }}" data-auth-code-form data-email-available="{{ 'true' if auth_availability.email else 'false' }}" data-phone-available="{{ 'true' if auth_availability.phone else 'false' }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -32,7 +43,6 @@
       <label><span data-i18n="emailAddress">Email address</span>
         <input name="email" type="email" required autocomplete="email" inputmode="email" value="{{ email }}" data-auth-input="email">
       </label>
-      <p class="method-unavailable" data-method-unavailable="email" {% if auth_availability.email %}hidden{% endif %} data-i18n="emailUnavailable">Email verification is temporarily unavailable.</p>
     </div>
 
     <div id="phonePanel" class="auth-panel" role="tabpanel" aria-labelledby="phoneTab" data-auth-panel="phone" {% if active_mode != 'phone' %}hidden{% endif %}>
@@ -46,7 +56,6 @@
       <label><span data-i18n="phoneNumber">Phone number</span>
         <input name="phone_number" type="tel" required autocomplete="tel-national" inputmode="tel" value="{{ phone_number }}" data-auth-input="phone" data-i18n-placeholder="phoneExample" placeholder="e.g. 98765 43210">
       </label>
-      <p class="method-unavailable" data-method-unavailable="phone" {% if auth_availability.phone %}hidden{% endif %} data-i18n="phoneUnavailable">Phone verification is temporarily unavailable.</p>
     </div>
 
     <button class="primary-button" type="submit" data-submit-label="sendCode" data-auth-submit {% if not auth_availability[active_mode] %}disabled{% endif %}><span data-submit-text data-i18n="sendCode">Send code</span></button>

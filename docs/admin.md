@@ -1,28 +1,31 @@
 # Secure Admin Dashboard
 
-## Promote the first admin
+## Create the first admin through the website
 
-1. Put the intended email in `.env` without hardcoding it in source:
+1. Use local development settings:
 
    ```text
-   ADMIN_EMAIL=admin@example.com
+   FLASK_ENV=development
+   APP_ENV=development
+   OTP_DEVELOPMENT_MODE=true
    ```
 
-2. Log in once with that email OTP so the account has a verified email.
-3. From the project root, run the one-time guarded command:
+2. Log in through the website with an email or phone OTP.
+3. Open `http://127.0.0.1:5000/admin/setup`, or click **Administrator Setup** in the website navigation/profile-setup page.
+4. Confirm the masked signed-in account, type `MAKE ME ADMIN`, and click **Make this account the administrator**.
+5. The website redirects to `/admin` and permanently records first-admin completion.
 
-   ```powershell
-   python -m app.admin.promote_admin admin@example.com
-   ```
+The route requires a logged-in account whose email or phone has been verified. It returns access denied for guests and unverified accounts, returns not found in production, and becomes not found permanently after setup. The promotion is performed in a locked SQLite transaction so two users cannot both become the first admin.
 
-If `python` is not the project virtual environment, use:
+## Optional terminal recovery backup
+
+The normal workflow is the website. If recovery is ever necessary, set `ADMIN_EMAIL` and use the existing guarded command:
 
 ```powershell
-$env:PYTHONPATH = Join-Path $PWD ".venv\Lib\site-packages"
-& .\.venv\Scripts\python.exe -m app.admin.promote_admin admin@example.com
+..venv\Scripts\python.exe -m app.admin.promote_admin admin@example.com
 ```
 
-The supplied normalized email must exactly match `ADMIN_EMAIL`, must belong to an active verified user, and is displayed only in masked form by the command. Re-running the command is safe and idempotent.
+The supplied normalized email must exactly match `ADMIN_EMAIL`, must belong to an active verified user, and is displayed only in masked form.
 
 ## Open the dashboard
 
@@ -34,11 +37,11 @@ http://127.0.0.1:5000/admin
 
 Guests and normal users receive HTTP 403. Every admin route verifies the server-side session and `is_admin` role. Profile editing cannot change this role.
 
-The table supports search, allow-listed sorting, and 10/25/50/100-row pagination. Deleted users are excluded. Contacts are masked on screen.
+The dashboard shows total active users, completed profiles, active tracked guest sessions, and recent accounts. The main table supports search, allow-listed sorting, and 10/25/50/100-row pagination. Deleted users are excluded. Contacts are masked on screen.
 
 ## Export
 
-Use **Export CSV** or **Export JSON** on the dashboard. Both actions are CSRF-protected POST requests and repeat the admin authorization check. Files are created in memory, downloaded with `Cache-Control: no-store`, and are not retained on disk or exposed through `static/`.
+Use **Export CSV** or **Export JSON** on the dashboard. The page immediately shows download-preparation status and the browser receives the attachment. Both actions are CSRF-protected POST requests and repeat the admin authorization check. Files are created in memory, downloaded with `Cache-Control: no-store`, and are not retained on disk or exposed through `static/`.
 
 Exports use UTF-8, ISO timestamps, stable user-ID ordering, and exclude passwords, hashes, OTPs, attempts, session IDs, provider references, tokens, API keys, credentials, voice recordings, and chat messages. CSV also neutralizes spreadsheet-formula prefixes in text cells.
 

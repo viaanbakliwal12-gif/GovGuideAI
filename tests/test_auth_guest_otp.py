@@ -180,6 +180,16 @@ class GuestModeTests(AuthFlowTestCase):
 
 
 class EmailOTPTests(AuthFlowTestCase):
+    def test_development_mode_is_visible_and_both_website_methods_are_enabled(self) -> None:
+        page = self.client.get("/login").get_data(as_text=True)
+        self.assertIn(
+            "Local development verification is enabled. No real email or SMS will be sent.",
+            page,
+        )
+        self.assertIn('data-email-available="true"', page)
+        self.assertIn('data-phone-available="true"', page)
+        self.assertNotIn("verification is temporarily unavailable", page)
+
     def test_invalid_email_is_rejected_before_challenge_creation(self) -> None:
         response = self.request_email_code("not-an-email")
         self.assertEqual(response.status_code, 400)
@@ -365,9 +375,11 @@ class EmailOTPTests(AuthFlowTestCase):
         with self.assertLogs("app.server", level="INFO") as logs:
             create_app()
         combined = "\n".join(logs.output)
-        self.assertIn("Email OTP provider: not configured", combined)
-        self.assertIn("SMS OTP provider: not configured", combined)
+        self.assertIn("Environment: development", combined)
         self.assertIn("Development OTP mode: enabled", combined)
+        self.assertIn("Email provider: not required in development", combined)
+        self.assertIn("SMS provider: not required in development", combined)
+        self.assertIn("Admin accounts: 0", combined)
         self.assertNotIn("test-secret-key", combined)
         self.assertNotIn("test-otp-pepper", combined)
 

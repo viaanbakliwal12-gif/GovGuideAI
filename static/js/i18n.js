@@ -375,6 +375,9 @@ Object.entries(compactLanguageData).forEach(([code, values]) => {
 const authAndGuestTranslations = {
   en: {
     loginOtpCopy: "Verify your email or phone number to securely access your saved profile.",
+    localDevelopmentVerification: "Local development verification is enabled. No real email or SMS will be sent.",
+    adminDashboard: "Admin Dashboard",
+    administratorSetup: "Administrator Setup",
     signupOtpCopy: "Start with a verified email or phone number, then complete your profile for personalized guidance.",
     continueWithEmail: "Continue with email",
     continueWithPhone: "Continue with phone number",

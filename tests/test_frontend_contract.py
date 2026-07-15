@@ -57,9 +57,26 @@ class FrontendContractTests(unittest.TestCase):
             "changeEmail",
             "changePhoneNumber",
             "createAccountToSave",
+            "localDevelopmentVerification",
+            "adminDashboard",
+            "administratorSetup",
         )
         for key in required_keys:
             self.assertIn(f"{key}:", translations)
+
+    def test_admin_website_setup_and_download_feedback_are_present(self) -> None:
+        setup = (ROOT / "templates" / "admin" / "setup.html").read_text(encoding="utf-8")
+        dashboard = (ROOT / "templates" / "admin" / "dashboard.html").read_text(encoding="utf-8")
+        script = (ROOT / "static" / "js" / "admin.js").read_text(encoding="utf-8")
+
+        self.assertIn("Make this account the administrator", setup)
+        self.assertIn('name="confirmation"', setup)
+        self.assertIn("Recent accounts", dashboard)
+        self.assertIn("data-export-form", dashboard)
+        self.assertIn("Preparing ${format} download", script)
+
+        profile_setup = (ROOT / "templates" / "profile_setup.html").read_text(encoding="utf-8")
+        self.assertIn("url_for('auth.logout')", profile_setup)
 
     def test_api_calls_send_csrf_tokens(self) -> None:
         for relative_path in (

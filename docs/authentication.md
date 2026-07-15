@@ -7,9 +7,11 @@ GovGuideAI validates syntax before sending a code and marks an identifier verifi
 At startup the server logs only this safe status summary, never secret values:
 
 ```text
-Email OTP provider: configured
-SMS OTP provider: not configured
+Environment: development
 Development OTP mode: enabled
+Email provider: not required in development
+SMS provider: not required in development
+Admin accounts: 0
 ```
 
 ## Local development OTP
@@ -22,13 +24,15 @@ APP_ENV=development
 OTP_DEVELOPMENT_MODE=true
 ```
 
-No email or SMS is sent. A fresh random six-digit code is hashed in SQLite and held temporarily in process memory only so the local verification page can show:
+No email or SMS is sent, and both website tabs remain enabled. The login page clearly states that local verification is active. A fresh random six-digit code is hashed in SQLite and held temporarily in process memory only so the website verification page can show:
 
 ```text
 Development OTP — not for production
 ```
 
 The code is not written to application logs. The app refuses to start if the switch is enabled in production or without an explicit development environment. The old `OTP_TEST_MODE` variable is ignored and cannot reveal codes.
+
+Enter the displayed code in the normal website field. Returning users are logged in; new users are sent to profile setup. Editing an input, changing email/phone tabs, or starting another request clears the previous form error.
 
 ## Real email with Resend
 

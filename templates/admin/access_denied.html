@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Access denied - GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body class="admin-body">
+    <main class="admin-setup-shell">
+      <section class="admin-setup-card" aria-labelledby="accessDeniedTitle">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <div><p class="eyebrow">Protected dataset</p><h1>GovGuideAI</h1></div>
+        </div>
+        <div class="admin-setup-intro">
+          <span class="official-badge">Admin only</span>
+          <h2 id="accessDeniedTitle">Access denied</h2>
+          <p>This dataset is available only to an authenticated GovGuideAI administrator.</p>
+        </div>
+        <a class="primary-button" href="{{ url_for('index') }}">Return to GovGuideAI</a>
+      </section>
+    </main>
+  </body>
+</html>

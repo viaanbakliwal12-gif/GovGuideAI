@@ -36,8 +36,10 @@ def apply_migrations(db: sqlite3.Connection) -> None:
     )
     _ensure_column(db, "otp_challenges", "provider_reference", "TEXT")
     _create_admin_tables(db)
+    _create_admin_setup_state(db)
     _record_migration(db, 1, "otp_and_guest_auth")
     _record_migration(db, 2, "admin_profiles_and_provider_tracking")
+    _record_migration(db, 3, "website_first_admin_setup")
 
 
 def _create_or_upgrade_users(db: sqlite3.Connection) -> None:
@@ -210,6 +212,36 @@ def _create_admin_tables(db: sqlite3.Connection) -> None:
             ON export_audit_log(admin_user_id, exported_at);
         """
     )
+
+
+def _create_admin_setup_state(db: sqlite3.Connection) -> None:
+    """Remember first-admin completion even if that account is later deleted."""
+
+    db.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS admin_setup_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            completed_at TEXT NOT NULL,
+            admin_user_id INTEGER NOT NULL
+        );
+        """
+    )
+    existing_admin = db.execute(
+        """
+        SELECT id FROM users
+        WHERE is_admin = 1
+        ORDER BY id ASC LIMIT 1
+        """
+    ).fetchone()
+    if existing_admin is not None:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO admin_setup_state (
+                id, completed_at, admin_user_id
+            ) VALUES (1, ?, ?)
+            """,
+            (_utc_now(), int(existing_admin["id"])),
+        )
 
 
 def _ensure_column(

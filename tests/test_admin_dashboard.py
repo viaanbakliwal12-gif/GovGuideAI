@@ -12,7 +12,11 @@ from unittest.mock import patch
 
 from werkzeug.security import generate_password_hash
 
-from app.admin.services import AdminPromotionError, promote_verified_admin
+from app.admin.services import (
+    FIRST_ADMIN_CONFIRMATION,
+    AdminPromotionError,
+    promote_verified_admin,
+)
 from app.database.session import get_connection
 from app.server import create_app
 
@@ -157,6 +161,10 @@ class AdminDashboardTests(unittest.TestCase):
         self.assertNotIn("deleted@example.com", page)
         self.assertNotIn("password_hash", page)
         self.assertNotIn("otp_hash", page)
+        self.assertIn("registered users", page)
+        self.assertIn("completed profile", page)
+        self.assertIn("active guest session", page)
+        self.assertIn("Recent accounts", page)
         self.assertEqual(response.headers["Cache-Control"], "no-store, private")
 
     def test_csv_and_json_exports_are_unicode_safe_private_and_audited(self) -> None:
@@ -202,6 +210,8 @@ class AdminDashboardTests(unittest.TestCase):
             [(1, "csv", 2), (1, "json", 2)],
         )
         self.assertFalse(list(Path(self.directory.name).glob("user_export_*")))
+        dashboard = self.client.get("/admin").get_data(as_text=True)
+        self.assertIn("JSON export prepared with 2 records.", dashboard)
 
     def test_profile_edit_cannot_self_promote_and_cli_service_is_guarded(self) -> None:
         self._login_as(2)
@@ -242,6 +252,132 @@ class AdminDashboardTests(unittest.TestCase):
             data={"_csrf_token": match.group(1)},
         )
         self.assertEqual(accepted.status_code, 200)
+
+
+class FirstAdminWebsiteSetupTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.directory = TemporaryDirectory(ignore_cleanup_errors=True)
+        self.database_path = Path(self.directory.name) / "first-admin-test.sqlite3"
+        self.database_patch = patch("app.database.session.DATABASE_PATH", self.database_path)
+        self.database_patch.start()
+        self.environment_patch = patch.dict(
+            os.environ,
+            {
+                "SECRET_KEY": "first-admin-test-secret",
+                "OTP_DEVELOPMENT_MODE": "true",
+                "FLASK_ENV": "development",
+                "APP_ENV": "development",
+                "EMAIL_PROVIDER": "",
+                "SMS_PROVIDER": "",
+            },
+            clear=False,
+        )
+        self.environment_patch.start()
+        self.app = create_app()
+        self.app.config.update(TESTING=True, SECRET_KEY="first-admin-test-secret")
+        self.client = self.app.test_client()
+        with get_connection() as db:
+            db.execute(
+                """
+                INSERT INTO users (
+                    id, email, password_hash, created_date, verified_email,
+                    email_verified_at, created_at, is_admin
+                ) VALUES (1, ?, NULL, ?, ?, ?, ?, 0)
+                """,
+                (
+                    "verified@example.com",
+                    "2026-07-01T00:00:00+00:00",
+                    "verified@example.com",
+                    "2026-07-01T00:00:00+00:00",
+                    "2026-07-01T00:00:00+00:00",
+                ),
+            )
+            db.execute(
+                """
+                INSERT INTO users (
+                    id, email, password_hash, created_date, created_at, is_admin
+                ) VALUES (2, ?, ?, ?, ?, 0)
+                """,
+                (
+                    "legacy@example.com",
+                    generate_password_hash("legacy-password"),
+                    "2026-07-02T00:00:00+00:00",
+                    "2026-07-02T00:00:00+00:00",
+                ),
+            )
+
+    def tearDown(self) -> None:
+        self.environment_patch.stop()
+        self.database_patch.stop()
+        self.directory.cleanup()
+
+    def _login_as(self, user_id: int) -> None:
+        with self.client.session_transaction() as browser_session:
+            browser_session.clear()
+            browser_session["user_id"] = user_id
+
+    def test_verified_user_can_complete_first_admin_setup_once(self) -> None:
+        self._login_as(1)
+        setup_page = self.client.get("/admin/setup")
+        self.assertEqual(setup_page.status_code, 200)
+        self.assertIn("Make this account the administrator", setup_page.get_data(as_text=True))
+        self.assertIn("v***@example.com", setup_page.get_data(as_text=True))
+
+        rejected = self.client.post("/admin/setup", data={"confirmation": "yes"})
+        self.assertEqual(rejected.status_code, 400)
+
+        promoted = self.client.post(
+            "/admin/setup",
+            data={"confirmation": FIRST_ADMIN_CONFIRMATION},
+            follow_redirects=False,
+        )
+        self.assertEqual(promoted.status_code, 302)
+        self.assertEqual(promoted.headers["Location"], "/admin")
+        self.assertEqual(self.client.get("/admin").status_code, 200)
+        self.assertEqual(self.client.get("/admin/setup").status_code, 404)
+
+        with get_connection() as db:
+            self.assertEqual(db.execute("SELECT is_admin FROM users WHERE id = 1").fetchone()[0], 1)
+            state = db.execute(
+                "SELECT admin_user_id FROM admin_setup_state WHERE id = 1"
+            ).fetchone()
+        self.assertEqual(state["admin_user_id"], 1)
+
+    def test_setup_rejects_guests_unverified_users_and_production(self) -> None:
+        self.client.post("/guest", data={"selected_language": "en"})
+        self.assertEqual(self.client.get("/admin/setup").status_code, 403)
+
+        self._login_as(2)
+        self.assertEqual(self.client.get("/admin/setup").status_code, 403)
+
+        self._login_as(1)
+        with patch.dict(
+            os.environ,
+            {
+                "APP_ENV": "production",
+                "FLASK_ENV": "production",
+                "OTP_DEVELOPMENT_MODE": "false",
+            },
+            clear=False,
+        ):
+            self.assertEqual(self.client.get("/admin/setup").status_code, 404)
+
+    def test_normal_user_cannot_promote_after_first_admin_exists(self) -> None:
+        self._login_as(1)
+        self.client.post(
+            "/admin/setup",
+            data={"confirmation": FIRST_ADMIN_CONFIRMATION},
+        )
+        self._login_as(2)
+        self.assertEqual(self.client.get("/admin").status_code, 403)
+        self.assertEqual(self.client.get("/admin/setup").status_code, 404)
+        self.assertEqual(
+            self.client.post(
+                "/admin/setup",
+                data={"confirmation": FIRST_ADMIN_CONFIRMATION},
+            ).status_code,
+            404,
+        )
 
 
 if __name__ == "__main__":

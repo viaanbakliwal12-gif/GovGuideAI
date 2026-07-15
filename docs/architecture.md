@@ -5,12 +5,12 @@ GovGuideAI keeps the existing Flask application and organizes new features into 
 ## Main Pieces
 
 - `main.py` starts the local Flask server.
+- `app/config.py` loads the project `.env` before services inspect configuration and classifies development/production safely.
 - `app/server.py` creates the Flask app, registers route groups, initializes SQLite, and exposes the chat API.
 - `app/agent/` contains the OpenAI Responses API setup, system prompt, tool schema, and response model.
 - `app/auth/` contains guest sessions, password compatibility, OTP orchestration,
   identifier validation, provider adapters, login/logout, and account deletion.
-- `app/admin/` contains admin authorization, profile queries, in-memory exports,
-  export auditing, and the guarded first-admin promotion command.
+- `app/admin/` contains admin authorization, one-time website setup, summary/profile queries, in-memory exports, export auditing, and an optional backup promotion command.
 - `app/profiles/` contains profile setup, editing, deletion, language saving, and database helpers.
 - `app/database/` contains SQLite connection setup, table creation, and compatibility updates.
 - `app/tools/` contains local tool code, including official-source Scheme Search.
@@ -35,3 +35,7 @@ All state-changing forms and browser API requests send the CSRF token.
 The admin blueprint uses the same CSRF layer plus an independent server-side
 `is_admin` check on every route. Export content is built only for an authorized
 request and never written under `static/`.
+
+`/admin/setup` is a development-only bootstrap route. It requires a verified
+logged-in user, succeeds only while no first-admin completion record exists,
+and atomically writes both the role and permanent setup marker.

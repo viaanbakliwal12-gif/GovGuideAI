@@ -1471,6 +1471,27 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.auth-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.local-development-notice {
+  margin: 0;
+  border-left: 4px solid var(--color-accent-green);
+  border-radius: var(--radius-sm);
+  background: rgba(21, 115, 71, 0.08);
+  color: #0d5d38;
+  padding: 9px 11px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.method-availability-notices {
+  display: grid;
+  gap: var(--spacing-2);
+}
+
 .auth-panel {
   min-width: 0;
 }
@@ -1992,6 +2013,7 @@ body {
 
 .admin-heading,
 .admin-toolbar,
+.admin-recent-card,
 .admin-table-card,
 .admin-privacy-note {
   border: 1px solid var(--color-border);
@@ -2019,6 +2041,12 @@ body {
   color: var(--text-secondary);
 }
 
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(145px, 1fr));
+  gap: var(--spacing-3);
+}
+
 .admin-stat-card {
   display: grid;
   min-width: 170px;
@@ -2037,6 +2065,45 @@ body {
   color: var(--text-secondary);
   font-size: 0.85rem;
   font-weight: 800;
+}
+
+.admin-recent-card {
+  display: grid;
+  gap: var(--spacing-4);
+  padding: var(--spacing-5);
+}
+
+.admin-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.admin-recent-grid article {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent-green);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  padding: 12px;
+}
+
+.admin-recent-grid strong,
+.admin-recent-grid span,
+.admin-recent-grid time {
+  overflow-wrap: anywhere;
+}
+
+.admin-recent-grid strong {
+  color: var(--color-primary);
+}
+
+.admin-recent-grid span,
+.admin-recent-grid time {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
 .admin-search {
@@ -2060,6 +2127,13 @@ body {
 .export-button {
   border-color: rgba(21, 115, 71, 0.35);
   color: var(--color-accent-green);
+}
+
+.admin-export-status {
+  min-height: 1.2em;
+  color: var(--color-accent-green);
+  font-size: 0.84rem;
+  font-weight: 800;
 }
 
 .admin-table-card {
@@ -2158,6 +2232,61 @@ body {
   font-size: 0.86rem;
 }
 
+.admin-setup-shell {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: max(var(--spacing-5), env(safe-area-inset-top)) var(--spacing-4)
+    max(var(--spacing-5), env(safe-area-inset-bottom));
+}
+
+.admin-setup-card {
+  display: grid;
+  gap: var(--spacing-5);
+  width: min(100%, 620px);
+  border: 1px solid var(--color-border);
+  border-top: 5px solid var(--color-accent-saffron);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  padding: clamp(22px, 5vw, 38px);
+}
+
+.admin-setup-intro,
+.admin-account-confirmation {
+  display: grid;
+  gap: var(--spacing-2);
+}
+
+.admin-account-confirmation {
+  border-left: 4px solid var(--color-accent-green);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-green-soft);
+  padding: 14px 16px;
+}
+
+.admin-account-confirmation span,
+.admin-account-confirmation small,
+.admin-setup-warning {
+  color: var(--text-secondary);
+}
+
+.profile-setup-logout {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.admin-account-confirmation strong {
+  color: var(--color-primary);
+  font-size: 1.05rem;
+}
+
+.admin-setup-warning {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
 .method-unavailable {
   border-left: 3px solid var(--color-accent-saffron);
   background: var(--color-accent-saffron-soft);
@@ -2197,6 +2326,14 @@ body {
     min-width: 0;
   }
 
+  .admin-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-recent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-export-actions {
     justify-content: flex-start;
   }
@@ -2227,8 +2364,14 @@ body {
   }
 
   .admin-heading,
-  .admin-toolbar {
+  .admin-toolbar,
+  .admin-recent-card {
     padding: var(--spacing-4);
+  }
+
+  .admin-stat-grid,
+  .admin-recent-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-search-row {

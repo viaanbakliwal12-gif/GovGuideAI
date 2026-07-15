@@ -270,20 +270,26 @@ def _render_auth_page(
     template = "signup.html" if purpose == "signup" else "login.html"
     requested_mode = active_mode or request.args.get("mode", "email")
     otp_status = otp_configuration_status()
+    availability = {
+        "email": otp_status.channel_available("email"),
+        "phone": otp_status.channel_available("sms"),
+    }
+    selected_mode = "phone" if requested_mode == "phone" else "email"
+    if not availability[selected_mode]:
+        other_mode = "email" if selected_mode == "phone" else "phone"
+        if availability[other_mode]:
+            selected_mode = other_mode
     return render_template(
         template,
         error=error,
         error_key=error_key,
         message=message,
         purpose=purpose,
-        active_mode="phone" if requested_mode == "phone" else "email",
+        active_mode=selected_mode,
         countries=country_options(),
         email=email,
         phone_number=phone_number,
         selected_country=selected_country,
-        auth_availability={
-            "email": otp_status.channel_available("email"),
-            "phone": otp_status.channel_available("sms"),
-        },
+        auth_availability=availability,
         development_otp_mode=otp_status.development_mode,
     )

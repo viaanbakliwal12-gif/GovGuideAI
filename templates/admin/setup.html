@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>First administrator setup - GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body class="admin-body">
+    <main class="admin-setup-shell">
+      <section class="admin-setup-card" aria-labelledby="adminSetupTitle">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <div>
+            <p class="eyebrow">Local development setup</p>
+            <h1>GovGuideAI</h1>
+          </div>
+        </div>
+
+        <div class="admin-setup-intro">
+          <span class="official-badge">One-time setup</span>
+          <h2 id="adminSetupTitle">Create the first administrator</h2>
+          <p>This page works only in local development and only before an administrator exists.</p>
+        </div>
+
+        <div class="admin-account-confirmation">
+          <span>Currently signed in as</span>
+          <strong>{{ account_label }}</strong>
+          <small>This account has already been verified through GovGuideAI.</small>
+        </div>
+
+        {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+
+        <form class="stacked-form" method="post" action="{{ url_for('admin.setup_post') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <label for="adminConfirmation">
+            Type <strong>{{ confirmation_phrase }}</strong> to confirm
+            <input id="adminConfirmation" name="confirmation" type="text" autocomplete="off" spellcheck="false" required>
+          </label>
+          <button class="primary-button" type="submit">Make this account the administrator</button>
+        </form>
+
+        <p class="admin-setup-warning">After promotion, this setup page is permanently disabled. Other accounts cannot use it to promote themselves.</p>
+        <a class="secondary-button" href="{{ url_for('index') }}">Back to GovGuideAI</a>
+      </section>
+    </main>
+  </body>
+</html>

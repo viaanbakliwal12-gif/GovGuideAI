@@ -95,6 +95,16 @@ reference. Neither field contains an OTP or provider credential.
 
 No exported profile values are copied into the audit table.
 
+`admin_setup_state` contains one permanent first-admin completion marker:
+
+- `completed_at`
+- `admin_user_id`
+
+It does not contain credentials or profile data. The marker prevents the local
+setup page from reopening if the original administrator account is later
+deleted. Migration version 3 creates this table in place and preserves all
+existing users, profiles, IDs, and application data.
+
 Run migrations explicitly with:
 
 ```powershell

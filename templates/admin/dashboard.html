@@ -27,15 +27,49 @@
     </header>
 
     <main class="admin-shell">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+        <p class="notice {{ 'error' if category == 'error' else 'success' }}" role="status">{{ message }}</p>
+      {% endfor %}
+
       <section class="admin-heading">
         <div>
           <p class="eyebrow">Registered user dataset</p>
           <h2>User profiles</h2>
           <p>Active accounts only. Contact details are masked on screen; authorized exports contain verified values.</p>
         </div>
-        <div class="admin-stat-card">
-          <strong>{{ profile_page.total_records }}</strong>
-          <span>registered account{{ '' if profile_page.total_records == 1 else 's' }}</span>
+        <div class="admin-stat-grid" aria-label="Dataset summary">
+          <article class="admin-stat-card">
+            <strong>{{ summary.total_users }}</strong>
+            <span>registered user{{ '' if summary.total_users == 1 else 's' }}</span>
+          </article>
+          <article class="admin-stat-card">
+            <strong>{{ summary.completed_profiles }}</strong>
+            <span>completed profile{{ '' if summary.completed_profiles == 1 else 's' }}</span>
+          </article>
+          <article class="admin-stat-card">
+            <strong>{{ summary.active_guests }}</strong>
+            <span>active guest session{{ '' if summary.active_guests == 1 else 's' }}</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="admin-recent-card" aria-labelledby="recentAccountsTitle">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Latest registrations</p>
+            <h3 id="recentAccountsTitle">Recent accounts</h3>
+          </div>
+        </div>
+        <div class="admin-recent-grid">
+          {% for account in summary.recent_accounts %}
+            <article>
+              <strong>#{{ account.user_id }} · {{ account.account_type }}</strong>
+              <span>{{ account.full_name or (account.email_display if account.email else account.phone_display) }}</span>
+              <time datetime="{{ account.created_at or '' }}">{{ account.created_at or 'Date unavailable' }}</time>
+            </article>
+          {% else %}
+            <p>No active accounts have been registered yet.</p>
+          {% endfor %}
         </div>
       </section>
 
@@ -56,15 +90,16 @@
           </div>
         </form>
         <div class="admin-export-actions" aria-label="Secure exports">
-          <form method="post" action="{{ url_for('admin.export_profiles', file_format='csv') }}">
+          <form method="post" action="{{ url_for('admin.export_profiles', file_format='csv') }}" data-export-form data-export-format="CSV">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <button class="secondary-button export-button" type="submit">Export CSV</button>
           </form>
-          <form method="post" action="{{ url_for('admin.export_profiles', file_format='json') }}">
+          <form method="post" action="{{ url_for('admin.export_profiles', file_format='json') }}" data-export-form data-export-format="JSON">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <button class="secondary-button export-button" type="submit">Export JSON</button>
           </form>
         </div>
+        <p class="admin-export-status" data-export-status role="status" aria-live="polite"></p>
       </section>
 
       {% macro sortable(field, label) -%}
@@ -150,5 +185,6 @@
 
       <p class="admin-privacy-note">Exports are generated only for this authorized request, are not stored in <code>static/</code>, and are recorded only by admin ID, timestamp, format, and record count.</p>
     </main>
+    <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
   </body>
 </html>

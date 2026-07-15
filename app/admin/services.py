@@ -9,6 +9,8 @@ from flask import abort
 
 from app.auth.services import current_user, utc_now
 from app.auth.validators import IdentifierValidationError, mask_destination, normalize_email
+from app.config import is_development_environment
+from app.database.models import User
 from app.database.session import get_connection
 
 
@@ -102,8 +104,23 @@ class ProfilePage:
     direction: str
 
 
+@dataclass(frozen=True)
+class AdminDashboardSummary:
+    total_users: int
+    completed_profiles: int
+    active_guests: int
+    recent_accounts: list[dict]
+
+
 class AdminPromotionError(RuntimeError):
     pass
+
+
+class AdminSetupError(RuntimeError):
+    pass
+
+
+FIRST_ADMIN_CONFIRMATION = "MAKE ME ADMIN"
 
 
 def admin_required(view):
@@ -163,6 +180,134 @@ def fetch_profile_page(
         sort=clean_sort,
         direction=clean_direction,
     )
+
+
+def fetch_dashboard_summary() -> AdminDashboardSummary:
+    with get_connection() as db:
+        total_users = int(
+            db.execute(
+                "SELECT COUNT(*) FROM users WHERE deleted_at IS NULL"
+            ).fetchone()[0]
+        )
+        completed_profiles = int(
+            db.execute(
+                """
+                SELECT COUNT(*)
+                FROM profiles p
+                JOIN users u ON u.id = p.user_id
+                WHERE u.deleted_at IS NULL
+                """
+            ).fetchone()[0]
+        )
+        active_guests = int(
+            db.execute(
+                "SELECT COUNT(*) FROM guest_sessions WHERE expires_at > ?",
+                (utc_now(),),
+            ).fetchone()[0]
+        )
+        rows = db.execute(
+            f"""
+            {PROFILE_SELECT_SQL}
+            WHERE u.deleted_at IS NULL
+            ORDER BY COALESCE(u.created_at, u.created_date) DESC, u.id DESC
+            LIMIT 5
+            """
+        ).fetchall()
+
+    return AdminDashboardSummary(
+        total_users=total_users,
+        completed_profiles=completed_profiles,
+        active_guests=active_guests,
+        recent_accounts=[_display_record(dict(row)) for row in rows],
+    )
+
+
+def count_admin_accounts() -> int:
+    with get_connection() as db:
+        return int(
+            db.execute(
+                """
+                SELECT COUNT(*) FROM users
+                WHERE is_admin = 1 AND deleted_at IS NULL
+                """
+            ).fetchone()[0]
+        )
+
+
+def first_admin_setup_completed() -> bool:
+    with get_connection() as db:
+        setup_row = db.execute(
+            "SELECT 1 FROM admin_setup_state WHERE id = 1"
+        ).fetchone()
+        if setup_row is not None:
+            return True
+        return bool(
+            db.execute("SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1").fetchone()
+        )
+
+
+def user_has_verified_identifier(user: User | None) -> bool:
+    return bool(
+        user
+        and (
+            (user.verified_email and user.email_verified_at)
+            or (user.verified_phone and user.phone_verified_at)
+        )
+    )
+
+
+def admin_setup_available_for_user(user: User | None) -> bool:
+    if not is_development_environment() or not user_has_verified_identifier(user):
+        return False
+    return not first_admin_setup_completed()
+
+
+def admin_setup_account_label(user: User) -> str:
+    if user.verified_email:
+        return mask_destination(user.verified_email, "email")
+    if user.verified_phone:
+        return mask_destination(user.verified_phone, "sms")
+    return "Verified GovGuideAI account"
+
+
+def promote_first_verified_admin(user_id: int, confirmation: str) -> None:
+    if str(confirmation or "").strip() != FIRST_ADMIN_CONFIRMATION:
+        raise AdminSetupError(f'Type "{FIRST_ADMIN_CONFIRMATION}" to confirm.')
+
+    now = utc_now()
+    with get_connection() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if db.execute(
+            "SELECT 1 FROM admin_setup_state WHERE id = 1"
+        ).fetchone() or db.execute(
+            "SELECT 1 FROM users WHERE is_admin = 1 LIMIT 1"
+        ).fetchone():
+            raise AdminSetupError("Administrator setup has already been completed.")
+
+        user = db.execute(
+            """
+            SELECT id FROM users
+            WHERE id = ? AND deleted_at IS NULL
+              AND (
+                (verified_email IS NOT NULL AND email_verified_at IS NOT NULL)
+                OR
+                (verified_phone IS NOT NULL AND phone_verified_at IS NOT NULL)
+              )
+            LIMIT 1
+            """,
+            (int(user_id),),
+        ).fetchone()
+        if user is None:
+            raise AdminSetupError("A logged-in verified account is required.")
+
+        db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (int(user_id),))
+        db.execute(
+            """
+            INSERT INTO admin_setup_state (id, completed_at, admin_user_id)
+            VALUES (1, ?, ?)
+            """,
+            (now, int(user_id)),
+        )
 
 
 def fetch_export_records() -> list[dict]:
@@ -225,6 +370,14 @@ def promote_verified_admin(email: str) -> tuple[int, bool]:
         already_admin = bool(row["is_admin"])
         if not already_admin:
             db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (row["id"],))
+        db.execute(
+            """
+            INSERT OR IGNORE INTO admin_setup_state (
+                id, completed_at, admin_user_id
+            ) VALUES (1, ?, ?)
+            """,
+            (utc_now(), int(row["id"])),
+        )
     return int(row["id"]), not already_admin
 
 

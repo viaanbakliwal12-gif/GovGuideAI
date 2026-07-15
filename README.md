@@ -31,10 +31,14 @@ APP_ENV=development
 For local email and phone OTP testing without providers:
 
 ```text
+FLASK_ENV=development
+APP_ENV=development
 OTP_DEVELOPMENT_MODE=true
+EMAIL_PROVIDER=
+SMS_PROVIDER=
 ```
 
-This creates a fresh random code for every request, stores only its salted/peppered hash in SQLite, and shows the code only on the local verification page under **Development OTP — not for production**. It is never printed to application logs. The app refuses to start with this flag in production or without an explicit development environment.
+The login page shows that local verification is enabled and keeps both email and phone tabs available. Each request creates a fresh random code, stores only its salted/peppered hash in SQLite, and shows the code only on the website verification page under **Development OTP — not for production**. Enter that code in the same page to complete the normal login flow. It is never printed to application logs. The app refuses to start with this flag in production or without an explicit development environment.
 
 For real Resend email OTP:
 
@@ -83,28 +87,19 @@ powershell -ExecutionPolicy Bypass -File .\run_ui.ps1
 
 Open `http://127.0.0.1:5000/`.
 
-## First admin
+## First admin through the website
 
-1. Add the intended verified email to `.env`:
+1. Run locally with `FLASK_ENV=development`, `APP_ENV=development`, and `OTP_DEVELOPMENT_MODE=true`.
+2. Log in with a verified email or phone number. The website displays the local OTP on the verification page.
+3. Open `http://127.0.0.1:5000/admin/setup`, or use the **Administrator Setup** link shown after verification.
+4. Confirm the currently signed-in account, type the displayed confirmation phrase, and click **Make this account the administrator**.
+5. The website redirects to `http://127.0.0.1:5000/admin` and permanently disables first-admin setup.
 
-   ```text
-   ADMIN_EMAIL=admin@example.com
-   ```
-
-2. Log in once with that email OTP.
-3. Run the guarded one-time command:
-
-   ```powershell
-   python -m app.admin.promote_admin admin@example.com
-   ```
-
-4. Restart, sign in as that user, and open `http://127.0.0.1:5000/admin`.
-
-Guests and normal users receive HTTP 403. Profile forms cannot change `is_admin`. See [docs/admin.md](docs/admin.md) for the virtual-environment command and security details.
+The setup page is unavailable in production, to guests, to unverified accounts, and after the first administrator is created. No email address is hardcoded. The guarded `python -m app.admin.promote_admin` command remains an optional recovery backup; see [docs/admin.md](docs/admin.md).
 
 ## Admin exports
 
-The admin dashboard provides **Export CSV** and **Export JSON**. Both are CSRF-protected POST requests that repeat the server-side admin check. Records are generated in memory, encoded as UTF-8, sorted by user ID, and returned as private no-store downloads. No export is placed in `static/`, at a public URL, or permanently on disk.
+The admin dashboard shows registered-user, completed-profile, active-guest, and recent-account summaries plus the searchable, sortable profile table. **Export CSV** and **Export JSON** start downloads directly in the browser and show preparation status on the page. Both are CSRF-protected POST requests that repeat the server-side admin check. Records are generated in memory, encoded as UTF-8, sorted by user ID, and returned as private no-store downloads. No export is placed in `static/`, at a public URL, or permanently on disk.
 
 Exports exclude password hashes, OTP hashes and attempts, sessions, authentication tokens, provider references and credentials, API keys, voice recordings, and chat messages. Audit rows contain only admin ID, UTC timestamp, format, and record count.
 
@@ -143,14 +138,15 @@ Providers and administration:
 
 ## Project structure
 
-- `app/admin/` — admin authorization, profile queries, export generation/audit, first-admin command
+- `app/config.py` — early `.env` loading and safe environment detection
+- `app/admin/` — admin authorization, website first-admin setup, dashboard queries, export generation/audit, optional backup command
 - `app/agent/` — GovGuideAI Responses API agent, prompt, Web Search and tool activity
 - `app/auth/` — OTP flow, providers, validation, legacy password login, guest sessions
 - `app/database/` — SQLite connection and safe in-place migrations
 - `app/profiles/` — profile setup, editing, deletion and language settings
 - `app/tools/` — official-source Scheme Search and Word Count
 - `app/voice/` — voice transcription and speech endpoints
-- `templates/admin/` — protected admin dashboard UI
+- `templates/admin/` — protected setup, access-denied, and dashboard UI
 - `static/` — local UI styles, chat, voice, authentication and multilingual JavaScript
 - `tests/` — OTP, provider, admin/export, privacy and regression tests
 - `docs/` — architecture, authentication, admin, database, data-flow and privacy notes
