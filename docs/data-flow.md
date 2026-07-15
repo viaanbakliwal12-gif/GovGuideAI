@@ -4,9 +4,9 @@
 
 1. A visitor opens `/`.
 2. If no browser language is selected, the frontend sends the user to `/language`.
-3. If not logged in, Flask redirects to `/login`.
-4. A new user creates an account at `/signup`.
-5. After login, the app checks whether a profile exists.
+3. If neither logged in nor a guest, Flask redirects to `/login`.
+4. A visitor may continue as a guest or verify an email/phone number.
+5. After verified login, the app checks whether a profile exists.
 6. If no profile exists, the user completes `/profile/setup`.
 7. The protected chat page loads the saved profile.
 8. The browser sends `message`, `conversationId`, and `selectedLanguage` to `/api/chat`.
@@ -17,6 +17,21 @@
 13. The frontend displays the answer and the tools used.
 
 Conversation memory is isolated by user ID and conversation ID.
+
+For guests, the same memory is isolated by a server-validated anonymous session
+hash and conversation ID. It is process-local and expires with the guest session.
+
+## OTP Authentication
+
+1. The browser submits an email or a phone number plus country to Flask.
+2. Flask validates and normalizes the identifier (`phonenumbers` produces E.164).
+3. Rate/cooldown limits are checked by HMAC destination and IP hashes.
+4. Flask creates a random six-digit code and stores only a salted/peppered hash.
+5. The destination is encrypted in the challenge row and the provider sends the code.
+6. The browser receives only a public challenge reference and masked destination.
+7. Successful verification invalidates every active code for that destination.
+8. An existing identifier reuses its account; otherwise a new user is created.
+9. Returning users enter chat, while new verified users complete profile setup.
 
 ## Voice Mode
 

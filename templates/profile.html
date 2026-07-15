@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Edit Profile - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
@@ -15,7 +16,8 @@
           <h1>GovGuideAI</h1>
         </div>
       </div>
-      <nav class="top-actions" aria-label="Account">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="topActions" data-i18n-title="openMenu" title="Open menu">☰</button>
+      <nav class="top-actions" id="topActions" aria-label="Account">
         <span class="official-badge" data-i18n="officialSources">Official sources only</span>
         <label class="language-inline"><span class="sr-only" data-i18n="languageSettings">Language settings</span>
           <select data-language-select aria-label="Language settings">
@@ -34,6 +36,7 @@
         </label>
         <a class="nav-link" href="{{ url_for('index') }}" data-i18n="backToChat">Back to Chat</a>
         <form method="post" action="{{ url_for('auth.logout') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="nav-button" type="submit" data-i18n="logout">Logout</button>
         </form>
       </nav>
@@ -48,6 +51,7 @@
         {% if saved %}<p class="notice success" data-i18n="profileSaved">Profile saved.</p>{% endif %}
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="profile-form" method="post" action="{{ url_for('profiles.profile_post') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           {% include "_profile_fields.html" %}
           <div class="form-actions">
             <button class="primary-button" type="submit" data-i18n="saveChanges">Save Changes</button>
@@ -55,9 +59,11 @@
         </form>
         <div class="danger-zone">
           <form method="post" action="{{ url_for('profiles.profile_delete') }}" data-confirm-key="deleteProfileConfirm">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <button class="danger-button" type="submit" data-i18n="deleteProfile">Delete Profile</button>
           </form>
           <form method="post" action="{{ url_for('auth.delete_account') }}" data-confirm-key="deleteAccountConfirm">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <button class="danger-button" type="submit" data-i18n="deleteAccount">Delete Account</button>
           </form>
         </div>
@@ -68,6 +74,7 @@
       window.govGuideProfileLanguage = "{{ profile.preferred_language if profile else 'en' }}";
     </script>
     <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/profile.js') }}" defer></script>
   </body>
 </html>

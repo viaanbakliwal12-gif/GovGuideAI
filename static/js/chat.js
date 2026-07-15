@@ -21,6 +21,10 @@ function selectedLanguage() {
   return window.GovGuideI18n?.getLanguage() || window.govGuideProfileLanguage || "en";
 }
 
+function csrfToken() {
+  return window.GovGuideI18n?.csrfToken() || document.querySelector("meta[name='csrf-token']")?.content || "";
+}
+
 function scrollToLatest() {
   messages.scrollTop = messages.scrollHeight;
 }
@@ -548,6 +552,7 @@ async function sendMessage(message) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken(),
       },
       body: JSON.stringify({
         message,
@@ -609,6 +614,7 @@ clearButton.addEventListener("click", async () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken(),
       },
       body: JSON.stringify({ conversationId }),
     });

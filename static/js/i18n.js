@@ -370,6 +370,97 @@ Object.entries(compactLanguageData).forEach(([code, values]) => {
   translations[code] = { ...translations.en, chooseLanguage: languageOptions.find((item) => item.code === code).name };
 });
 
+const authAndGuestTranslations = {
+  en: {
+    loginOtpCopy: "Verify your email or phone number to securely access your saved profile.",
+    signupOtpCopy: "Start with a verified email or phone number, then complete your profile for personalized guidance.",
+    continueWithEmail: "Continue with email",
+    continueWithPhone: "Continue with phone number",
+    emailAddress: "Email address",
+    country: "Country",
+    phoneNumber: "Phone number",
+    phoneExample: "e.g. 98765 43210",
+    sendCode: "Send code",
+    sendingCode: "Sending code…",
+    or: "or",
+    continueAsGuest: "Continue as Guest",
+    guestExplanation: "You can use GovGuideAI without creating an account. Recommendations may be less personalized, and your profile and chat history may not be saved.",
+    reducedPersonalization: "Reduced personalization",
+    noPermanentProfile: "No permanent profile",
+    noSavedHistory: "No permanent saved chat history or cross-device access",
+    temporaryMemoryOnly: "Temporary conversation memory only",
+    usePasswordInstead: "Use email and password instead",
+    loginWithPassword: "Login with password",
+    createWithPassword: "Create with password",
+    authPrivacyNotice: "Email or phone verification is used to secure your account. Guest users can continue without sharing these details, but personalization and saved history will be limited.",
+    invalidEmail: "Enter a valid email address.",
+    invalidPhone: "Enter a valid phone number.",
+    couldNotSendCode: "We could not send a verification code. Check the address or number and try again.",
+    waitBeforeCode: "Please wait before requesting another code.",
+    incorrectOrExpiredCode: "That code is incorrect or has expired.",
+    incorrectPassword: "Incorrect email or password.",
+    secureVerification: "Secure verification",
+    enterVerificationCode: "Enter verification code",
+    codeSentTo: "We sent a 6-digit code to",
+    sixDigitCode: "6-digit code",
+    otpHelp: "Enter or paste the full code.",
+    verify: "Verify",
+    resendCode: "Resend code",
+    codeExpired: "Code expired. Request a new code.",
+    changeEmail: "Change email",
+    changePhoneNumber: "Change phone number",
+    verificationSuccessful: "Verification successful.",
+    continuingToAccount: "Your secure session is ready.",
+    developmentOnly: "Development only:",
+    testCode: "test code",
+    passwordMinimum: "Use at least 8 characters.",
+    sixDigitCodeRequired: "Enter all 6 digits.",
+    openMenu: "Open menu",
+    close: "Close",
+    guestMode: "Guest mode",
+    temporary: "Temporary",
+    guestReducedNotice: "You can use every assistant tool, but recommendations have reduced personalization.",
+    createAccountToSave: "Create an account to save your information",
+    guestTrustCopy: "GovGuideAI provides official-source guidance without requiring personal details.",
+    guestChatNotice: "Your chat works normally, but this session and its personalization are temporary.",
+    emptyStateGuestNote: "You can share optional details in this conversation when they help, but they are not saved as a profile.",
+  },
+  hi: {
+    continueWithEmail: "ईमेल से जारी रखें", continueWithPhone: "फ़ोन नंबर से जारी रखें", country: "देश", phoneNumber: "फ़ोन नंबर", sendCode: "कोड भेजें", continueAsGuest: "अतिथि के रूप में जारी रखें", reducedPersonalization: "कम व्यक्तिगत सुझाव", enterVerificationCode: "सत्यापन कोड दर्ज करें", verify: "सत्यापित करें", resendCode: "कोड फिर भेजें", codeExpired: "कोड की समय-सीमा समाप्त हो गई।", incorrectOrExpiredCode: "यह कोड गलत है या इसकी समय-सीमा समाप्त हो गई है।", changeEmail: "ईमेल बदलें", changePhoneNumber: "फ़ोन नंबर बदलें", createAccountToSave: "अपनी जानकारी सहेजने के लिए खाता बनाएं", guestMode: "अतिथि मोड", guestExplanation: "आप बिना खाता बनाए GovGuideAI का उपयोग कर सकते हैं। सुझाव कम व्यक्तिगत हो सकते हैं और प्रोफ़ाइल व चैट इतिहास सहेजा नहीं जाएगा।", authPrivacyNotice: "ईमेल या फ़ोन सत्यापन आपके खाते की सुरक्षा के लिए है। अतिथि बिना ये विवरण साझा किए जारी रख सकते हैं, लेकिन व्यक्तिगत सुझाव और सहेजा इतिहास सीमित रहेगा।",
+  },
+  mr: {
+    continueWithEmail: "ईमेलने पुढे जा", continueWithPhone: "फोन क्रमांकाने पुढे जा", country: "देश", phoneNumber: "फोन क्रमांक", sendCode: "कोड पाठवा", continueAsGuest: "अतिथी म्हणून पुढे जा", reducedPersonalization: "मर्यादित वैयक्तिकरण", enterVerificationCode: "पडताळणी कोड टाका", verify: "पडताळा", resendCode: "कोड पुन्हा पाठवा", codeExpired: "कोडची मुदत संपली.", incorrectOrExpiredCode: "हा कोड चुकीचा आहे किंवा त्याची मुदत संपली आहे.", changeEmail: "ईमेल बदला", changePhoneNumber: "फोन क्रमांक बदला", createAccountToSave: "माहिती जतन करण्यासाठी खाते तयार करा",
+  },
+  bn: {
+    continueWithEmail: "ইমেল দিয়ে চালিয়ে যান", continueWithPhone: "ফোন নম্বর দিয়ে চালিয়ে যান", country: "দেশ", phoneNumber: "ফোন নম্বর", sendCode: "কোড পাঠান", continueAsGuest: "অতিথি হিসেবে চালিয়ে যান", reducedPersonalization: "সীমিত ব্যক্তিগতকরণ", enterVerificationCode: "যাচাইকরণ কোড লিখুন", verify: "যাচাই করুন", resendCode: "কোড আবার পাঠান", codeExpired: "কোডের মেয়াদ শেষ।", incorrectOrExpiredCode: "কোডটি ভুল বা মেয়াদোত্তীর্ণ।", changeEmail: "ইমেল পরিবর্তন করুন", changePhoneNumber: "ফোন নম্বর পরিবর্তন করুন", createAccountToSave: "তথ্য সংরক্ষণ করতে অ্যাকাউন্ট তৈরি করুন",
+  },
+  ta: {
+    continueWithEmail: "மின்னஞ்சலுடன் தொடரவும்", continueWithPhone: "தொலைபேசி எண்ணுடன் தொடரவும்", country: "நாடு", phoneNumber: "தொலைபேசி எண்", sendCode: "குறியீட்டை அனுப்பு", continueAsGuest: "விருந்தினராக தொடரவும்", reducedPersonalization: "குறைந்த தனிப்பயனாக்கம்", enterVerificationCode: "சரிபார்ப்புக் குறியீட்டை உள்ளிடவும்", verify: "சரிபார்", resendCode: "குறியீட்டை மீண்டும் அனுப்பு", codeExpired: "குறியீடு காலாவதியானது.", incorrectOrExpiredCode: "குறியீடு தவறானது அல்லது காலாவதியானது.", changeEmail: "மின்னஞ்சலை மாற்று", changePhoneNumber: "தொலைபேசி எண்ணை மாற்று", createAccountToSave: "தகவலைச் சேமிக்க கணக்கு உருவாக்கவும்",
+  },
+  te: {
+    continueWithEmail: "ఇమెయిల్‌తో కొనసాగండి", continueWithPhone: "ఫోన్ నంబర్‌తో కొనసాగండి", country: "దేశం", phoneNumber: "ఫోన్ నంబర్", sendCode: "కోడ్ పంపండి", continueAsGuest: "అతిథిగా కొనసాగండి", reducedPersonalization: "తక్కువ వ్యక్తిగతీకరణ", enterVerificationCode: "ధృవీకరణ కోడ్ నమోదు చేయండి", verify: "ధృవీకరించండి", resendCode: "కోడ్ మళ్లీ పంపండి", codeExpired: "కోడ్ గడువు ముగిసింది.", incorrectOrExpiredCode: "కోడ్ తప్పు లేదా గడువు ముగిసింది.", changeEmail: "ఇమెయిల్ మార్చండి", changePhoneNumber: "ఫోన్ నంబర్ మార్చండి", createAccountToSave: "సమాచారాన్ని సేవ్ చేయడానికి ఖాతా సృష్టించండి",
+  },
+  gu: {
+    continueWithEmail: "ઇમેઇલથી આગળ વધો", continueWithPhone: "ફોન નંબરથી આગળ વધો", country: "દેશ", phoneNumber: "ફોન નંબર", sendCode: "કોડ મોકલો", continueAsGuest: "મહેમાન તરીકે આગળ વધો", reducedPersonalization: "ઓછું વ્યક્તિગતકરણ", enterVerificationCode: "ચકાસણી કોડ દાખલ કરો", verify: "ચકાસો", resendCode: "કોડ ફરી મોકલો", codeExpired: "કોડની મુદત પૂરી થઈ.", incorrectOrExpiredCode: "કોડ ખોટો છે અથવા તેની મુદત પૂરી થઈ છે.", changeEmail: "ઇમેઇલ બદલો", changePhoneNumber: "ફોન નંબર બદલો", createAccountToSave: "માહિતી સાચવવા ખાતું બનાવો",
+  },
+  kn: {
+    continueWithEmail: "ಇಮೇಲ್‌ನೊಂದಿಗೆ ಮುಂದುವರಿಸಿ", continueWithPhone: "ಫೋನ್ ಸಂಖ್ಯೆಯೊಂದಿಗೆ ಮುಂದುವರಿಸಿ", country: "ದೇಶ", phoneNumber: "ಫೋನ್ ಸಂಖ್ಯೆ", sendCode: "ಕೋಡ್ ಕಳುಹಿಸಿ", continueAsGuest: "ಅತಿಥಿಯಾಗಿ ಮುಂದುವರಿಸಿ", reducedPersonalization: "ಕಡಿಮೆ ವೈಯಕ್ತೀಕರಣ", enterVerificationCode: "ಪರಿಶೀಲನಾ ಕೋಡ್ ನಮೂದಿಸಿ", verify: "ಪರಿಶೀಲಿಸಿ", resendCode: "ಕೋಡ್ ಮತ್ತೆ ಕಳುಹಿಸಿ", codeExpired: "ಕೋಡ್ ಅವಧಿ ಮುಗಿದಿದೆ.", incorrectOrExpiredCode: "ಕೋಡ್ ತಪ್ಪಾಗಿದೆ ಅಥವಾ ಅವಧಿ ಮುಗಿದಿದೆ.", changeEmail: "ಇಮೇಲ್ ಬದಲಿಸಿ", changePhoneNumber: "ಫೋನ್ ಸಂಖ್ಯೆ ಬದಲಿಸಿ", createAccountToSave: "ಮಾಹಿತಿ ಉಳಿಸಲು ಖಾತೆ ರಚಿಸಿ",
+  },
+  ml: {
+    continueWithEmail: "ഇമെയിൽ ഉപയോഗിച്ച് തുടരുക", continueWithPhone: "ഫോൺ നമ്പർ ഉപയോഗിച്ച് തുടരുക", country: "രാജ്യം", phoneNumber: "ഫോൺ നമ്പർ", sendCode: "കോഡ് അയയ്ക്കുക", continueAsGuest: "അതിഥിയായി തുടരുക", reducedPersonalization: "കുറഞ്ഞ വ്യക്തിഗതമാക്കൽ", enterVerificationCode: "സ്ഥിരീകരണ കോഡ് നൽകുക", verify: "സ്ഥിരീകരിക്കുക", resendCode: "കോഡ് വീണ്ടും അയയ്ക്കുക", codeExpired: "കോഡിന്റെ കാലാവധി കഴിഞ്ഞു.", incorrectOrExpiredCode: "കോഡ് തെറ്റാണ് അല്ലെങ്കിൽ കാലാവധി കഴിഞ്ഞു.", changeEmail: "ഇമെയിൽ മാറ്റുക", changePhoneNumber: "ഫോൺ നമ്പർ മാറ്റുക", createAccountToSave: "വിവരങ്ങൾ സൂക്ഷിക്കാൻ അക്കൗണ്ട് സൃഷ്ടിക്കുക",
+  },
+  pa: {
+    continueWithEmail: "ਈਮੇਲ ਨਾਲ ਜਾਰੀ ਰੱਖੋ", continueWithPhone: "ਫ਼ੋਨ ਨੰਬਰ ਨਾਲ ਜਾਰੀ ਰੱਖੋ", country: "ਦੇਸ਼", phoneNumber: "ਫ਼ੋਨ ਨੰਬਰ", sendCode: "ਕੋਡ ਭੇਜੋ", continueAsGuest: "ਮਹਿਮਾਨ ਵਜੋਂ ਜਾਰੀ ਰੱਖੋ", reducedPersonalization: "ਘੱਟ ਨਿੱਜੀਕਰਨ", enterVerificationCode: "ਤਸਦੀਕੀ ਕੋਡ ਦਰਜ ਕਰੋ", verify: "ਤਸਦੀਕ ਕਰੋ", resendCode: "ਕੋਡ ਦੁਬਾਰਾ ਭੇਜੋ", codeExpired: "ਕੋਡ ਦੀ ਮਿਆਦ ਖਤਮ ਹੋ ਗਈ।", incorrectOrExpiredCode: "ਕੋਡ ਗਲਤ ਹੈ ਜਾਂ ਮਿਆਦ ਖਤਮ ਹੋ ਗਈ ਹੈ।", changeEmail: "ਈਮੇਲ ਬਦਲੋ", changePhoneNumber: "ਫ਼ੋਨ ਨੰਬਰ ਬਦਲੋ", createAccountToSave: "ਜਾਣਕਾਰੀ ਸੰਭਾਲਣ ਲਈ ਖਾਤਾ ਬਣਾਓ",
+  },
+  ur: {
+    continueWithEmail: "ای میل کے ساتھ جاری رکھیں", continueWithPhone: "فون نمبر کے ساتھ جاری رکھیں", country: "ملک", phoneNumber: "فون نمبر", sendCode: "کوڈ بھیجیں", continueAsGuest: "مہمان کے طور پر جاری رکھیں", reducedPersonalization: "کم ذاتی نوعیت", enterVerificationCode: "تصدیقی کوڈ درج کریں", verify: "تصدیق کریں", resendCode: "کوڈ دوبارہ بھیجیں", codeExpired: "کوڈ کی میعاد ختم ہو گئی۔", incorrectOrExpiredCode: "کوڈ غلط ہے یا اس کی میعاد ختم ہو گئی ہے۔", changeEmail: "ای میل تبدیل کریں", changePhoneNumber: "فون نمبر تبدیل کریں", createAccountToSave: "معلومات محفوظ کرنے کے لیے اکاؤنٹ بنائیں",
+  },
+};
+
+Object.entries(authAndGuestTranslations).forEach(([code, values]) => {
+  translations[code] = { ...translations[code], ...authAndGuestTranslations.en, ...values };
+});
+
 function getStoredLanguage() {
   return window.localStorage.getItem("govguideaiLanguage") || "";
 }
@@ -395,6 +486,10 @@ function setLanguage(language) {
 function t(key) {
   const language = getLanguage();
   return translations[language]?.[key] || translations.en[key] || key;
+}
+
+function csrfToken() {
+  return document.querySelector("meta[name='csrf-token']")?.content || "";
 }
 
 function applyTranslations() {
@@ -441,7 +536,7 @@ async function saveLanguageToProfile(language) {
   try {
     await fetch("/api/profile/language", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
       body: JSON.stringify({ language }),
     });
   } catch {
@@ -494,4 +589,5 @@ window.GovGuideI18n = {
   t,
   applyTranslations,
   saveLanguageToProfile,
+  csrfToken,
 };

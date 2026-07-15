@@ -6,9 +6,44 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class User:
     id: int
-    email: str
+    email: str | None
     created_date: str
     last_login_date: str | None
+    verified_email: str | None = None
+    verified_phone: str | None = None
+    email_verified_at: str | None = None
+    phone_verified_at: str | None = None
+
+    @property
+    def display_identifier(self) -> str:
+        return self.verified_email or self.verified_phone or self.email or "GovGuideAI user"
+
+
+@dataclass(frozen=True)
+class OTPChallenge:
+    id: int
+    public_id: str
+    destination_hash: str
+    destination_encrypted: str
+    channel: str
+    purpose: str
+    otp_hash: str
+    expires_at: str
+    attempts: int
+    resend_count: int
+    used_at: str | None
+    created_at: str
+    last_sent_at: str
+    requested_ip_hash: str
+
+
+@dataclass(frozen=True)
+class GuestSession:
+    id: int
+    session_hash: str
+    created_at: str
+    last_seen_at: str
+    expires_at: str
 
 
 @dataclass(frozen=True)

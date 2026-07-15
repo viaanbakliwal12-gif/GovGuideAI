@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
-from app.auth.services import current_user, login_required
+from app.auth.guest_service import update_guest_language
+from app.auth.services import assistant_access_required, current_user, login_required
 from app.profiles.services import (
     delete_profile,
     get_profile,
+    normalize_language,
     profile_from_form,
     save_profile,
     update_profile_language,
@@ -63,11 +65,15 @@ def profile_post():
 
 
 @profiles_bp.post("/api/profile/language")
-@login_required
+@assistant_access_required
 def profile_language():
     user = current_user()
     payload = request.get_json(silent=True) or {}
-    language = update_profile_language(user.id, payload.get("language"))
+    language = normalize_language(payload.get("language"))
+    if user is not None:
+        language = update_profile_language(user.id, language)
+    else:
+        update_guest_language(language)
     return jsonify({"language": language})
 
 

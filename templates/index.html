@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
@@ -54,7 +55,7 @@
         ("occupationSupportPrompt", "Occupation support", "What government support is available for someone in my occupation?")
       ]
     } %}
-    {% set personalized_prompts = occupation_prompt_sets.get(profile.occupation, occupation_prompt_sets["other"]) %}
+    {% set personalized_prompts = occupation_prompt_sets.get(profile.occupation if profile else "other", occupation_prompt_sets["other"]) %}
     {% macro prompt_button(prompt) -%}
       <button type="button" data-prompt="{{ prompt[2] }}" data-i18n="{{ prompt[0] }}">{{ prompt[1] }}</button>
     {%- endmacro %}
@@ -67,7 +68,8 @@
           <h1>GovGuideAI</h1>
         </div>
       </div>
-      <nav class="top-actions" aria-label="Account">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="topActions" data-i18n-title="openMenu" title="Open menu">☰</button>
+      <nav class="top-actions" id="topActions" aria-label="Account">
         <span class="official-badge" data-i18n="officialSources">Official sources only</span>
         <div class="account-controls">
           <label class="language-inline"><span class="sr-only" data-i18n="languageSettings">Language settings</span>
@@ -85,33 +87,57 @@
             <option value="ur">اردو</option>
           </select>
           </label>
-          <a class="nav-link" href="{{ url_for('profiles.profile') }}" data-i18n="editProfile">Edit Profile</a>
-          <form method="post" action="{{ url_for('auth.logout') }}">
-            <button class="nav-button" type="submit" data-i18n="logout">Logout</button>
-          </form>
+          {% if is_guest %}
+            <a class="nav-link" href="{{ url_for('auth.login') }}" data-i18n="login">Login</a>
+            <a class="nav-link nav-link-primary" href="{{ url_for('auth.signup') }}" data-i18n="createAccount">Create Account</a>
+          {% else %}
+            <a class="nav-link" href="{{ url_for('profiles.profile') }}" data-i18n="editProfile">Edit Profile</a>
+            <form method="post" action="{{ url_for('auth.logout') }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button class="nav-button" type="submit" data-i18n="logout">Logout</button>
+            </form>
+          {% endif %}
         </div>
       </nav>
     </header>
 
     <main class="app-shell">
-      <aside class="context-panel" aria-label="Profile and trust information">
-        <section class="profile-panel">
-          <div class="section-title-row">
-            <h2 data-i18n="yourProfile">Your Profile</h2>
-            <a class="small-link" href="{{ url_for('profiles.profile') }}" data-i18n="edit">Edit</a>
-          </div>
-          <dl class="profile-list">
-            <div><dt data-i18n="name">Name</dt><dd>{{ profile.full_name }}</dd></div>
-            <div><dt data-i18n="state">State/UT</dt><dd>{{ profile.state }}</dd></div>
-            <div><dt data-i18n="occupation">Occupation</dt><dd data-occupation-value="{{ profile.occupation }}">{{ profile.occupation }}</dd></div>
-            <div><dt data-i18n="age">Age</dt><dd>{{ profile.age }}</dd></div>
-            <div><dt data-i18n="language">Language</dt><dd data-language-name>{{ profile.preferred_language }}</dd></div>
-          </dl>
-        </section>
+      <button class="context-backdrop" id="contextBackdrop" type="button" aria-label="Close profile panel" hidden></button>
+      <aside class="context-panel" id="contextPanel" aria-label="Profile and trust information" data-open="false">
+        <button class="context-close" id="contextClose" type="button" data-i18n="close">Close</button>
+        {% if is_guest %}
+          <section class="profile-panel guest-profile-panel">
+            <div class="section-title-row">
+              <h2 data-i18n="guestMode">Guest mode</h2>
+              <span class="guest-badge" data-i18n="temporary">Temporary</span>
+            </div>
+            <p data-i18n="guestReducedNotice">You can use every assistant tool, but recommendations have reduced personalization.</p>
+            <ul class="compact-list">
+              <li data-i18n="noPermanentProfile">No permanent profile</li>
+              <li data-i18n="noSavedHistory">No permanent saved chat history or cross-device access</li>
+              <li data-i18n="temporaryMemoryOnly">Temporary conversation memory only</li>
+            </ul>
+            <a class="primary-button compact-button" href="{{ url_for('auth.signup') }}" data-i18n="createAccountToSave">Create an account to save your information</a>
+          </section>
+        {% else %}
+          <section class="profile-panel">
+            <div class="section-title-row">
+              <h2 data-i18n="yourProfile">Your Profile</h2>
+              <a class="small-link" href="{{ url_for('profiles.profile') }}" data-i18n="edit">Edit</a>
+            </div>
+            <dl class="profile-list">
+              <div><dt data-i18n="name">Name</dt><dd>{{ profile.full_name }}</dd></div>
+              <div><dt data-i18n="state">State/UT</dt><dd>{{ profile.state }}</dd></div>
+              <div><dt data-i18n="occupation">Occupation</dt><dd data-occupation-value="{{ profile.occupation }}">{{ profile.occupation }}</dd></div>
+              <div><dt data-i18n="age">Age</dt><dd>{{ profile.age }}</dd></div>
+              <div><dt data-i18n="language">Language</dt><dd data-language-name>{{ profile.preferred_language }}</dd></div>
+            </dl>
+          </section>
+        {% endif %}
 
         <section class="trust-panel">
           <span class="trust-badge" data-i18n="officialSources">Official sources only</span>
-          <p data-i18n="trustCopy">GovGuideAI uses your saved profile only to personalize government-service and scheme guidance.</p>
+          <p data-i18n="{{ 'guestTrustCopy' if is_guest else 'trustCopy' }}">{{ 'GovGuideAI provides official-source guidance without requiring personal details.' if is_guest else 'GovGuideAI uses your saved profile only to personalize government-service and scheme guidance.' }}</p>
           <p class="disclaimer" data-i18n="disclaimer">GovGuideAI provides guidance based on official sources. Final eligibility and approval are decided by the relevant government authority.</p>
         </section>
 
@@ -129,17 +155,29 @@
             <p class="eyebrow" data-i18n="askEyebrow">Ask about Indian government services</p>
             <h2 data-i18n="chatTitle">GovGuideAI Chat</h2>
           </div>
-          <button class="secondary-button" id="clearButton" type="button" data-i18n-title="clearConversation" aria-label="Clear conversation" title="Clear conversation">
-            <span aria-hidden="true" data-i18n="clearConversation">Clear conversation</span>
-          </button>
+          <div class="chat-header-actions">
+            <button class="secondary-button context-toggle" id="contextToggle" type="button" aria-expanded="false" aria-controls="contextPanel" data-i18n="{{ 'guestMode' if is_guest else 'yourProfile' }}">{{ 'Guest mode' if is_guest else 'Your Profile' }}</button>
+            <button class="secondary-button" id="clearButton" type="button" data-i18n-title="clearConversation" aria-label="Clear conversation" title="Clear conversation">
+              <span aria-hidden="true" data-i18n="clearConversation">Clear conversation</span>
+            </button>
+          </div>
         </header>
 
         <div class="messages" id="messages" aria-live="polite">
+          {% if is_guest %}
+            <aside class="guest-save-banner">
+              <div>
+                <strong data-i18n="guestMode">Guest mode</strong>
+                <p data-i18n="guestChatNotice">Your chat works normally, but this session and its personalization are temporary.</p>
+              </div>
+              <a href="{{ url_for('auth.signup') }}" data-i18n="createAccountToSave">Create an account to save your information</a>
+            </aside>
+          {% endif %}
           <section class="chat-empty-state" id="chatEmptyState" aria-label="Conversation start">
             <div class="empty-state-copy">
               <p class="eyebrow" data-i18n="officialSources">Official sources only</p>
               <h3 data-i18n="greeting">Welcome to GovGuideAI. How can I help you today?</h3>
-              <p data-i18n="emptyStateProfileNote">Answers use your saved profile when it helps personalize scheme and service guidance.</p>
+              <p data-i18n="{{ 'emptyStateGuestNote' if is_guest else 'emptyStateProfileNote' }}">{{ 'You can share optional details in this conversation when they help, but they are not saved as a profile.' if is_guest else 'Answers use your saved profile when it helps personalize scheme and service guidance.' }}</p>
             </div>
             <div class="empty-prompt-grid" aria-label="Suggested prompts">
               <button type="button" data-prompt="What documents are needed for a new passport application in India?" data-i18n="passportPrompt">Passport documents</button>
@@ -192,11 +230,13 @@
     </main>
 
     <script>
-      window.govGuideUserId = "{{ user.id }}";
-      window.govGuideProfileLanguage = "{{ profile.preferred_language }}";
-      window.govGuideUserName = "{{ profile.full_name }}";
+      window.govGuideUserId = "{{ user.id if user else 'guest' }}";
+      window.govGuideProfileLanguage = "{{ profile.preferred_language if profile else guest_language }}";
+      window.govGuideUserName = "{{ profile.full_name if profile else '' }}";
+      window.govGuideIsGuest = {{ is_guest|tojson }};
     </script>
     <script src="{{ url_for('static', filename='js/i18n.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/voice.js') }}" defer></script>
   </body>

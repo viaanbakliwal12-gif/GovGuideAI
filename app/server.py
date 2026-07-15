@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from functools import lru_cache
 import json
 import os
@@ -21,10 +22,17 @@ from flask import (
 
 from app.agent import AgentActivity, AgentResponse, GovernmentHelpAgent
 from app.auth import auth_bp
-from app.auth.services import current_user, login_required
+from app.auth.otp_service import development_test_mode_enabled
+from app.auth.services import (
+    assistant_access_required,
+    current_subject_key,
+    current_user,
+    is_guest,
+)
 from app.database import init_db
 from app.profiles import profiles_bp
 from app.profiles.services import get_profile, normalize_language
+from app.security import init_security
 from app.services import ConversationMemory
 from app.tools.word_count import count_words
 from app.voice import voice_bp
@@ -52,6 +60,12 @@ def create_app() -> Flask:
         static_folder="../static",
     )
     app.config["SECRET_KEY"] = secret_key
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
+    app.config["SESSION_COOKIE_SECURE"] = os.getenv(
+        "APP_ENV", os.getenv("FLASK_ENV", "development")
+    ).strip().lower() in {"production", "prod"}
+    init_security(app)
+    development_test_mode_enabled()
 
     init_db()
     app.register_blueprint(auth_bp)
@@ -70,29 +84,39 @@ def create_app() -> Flask:
         return render_template("language_select.html", next_url=next_url)
 
     @app.get("/")
-    @login_required
+    @assistant_access_required
     def index():
         user = current_user()
-        profile = get_profile(user.id)
-        if profile is None:
+        guest = is_guest()
+        profile = get_profile(user.id) if user is not None else None
+        if not guest and profile is None:
             return redirect(url_for("profiles.setup_profile"))
 
-        return render_template("index.html", user=user, profile=profile)
+        return render_template(
+            "index.html",
+            user=user,
+            profile=profile,
+            is_guest=guest,
+            guest_language=session.get("guest_language", "en"),
+        )
 
     @app.post("/api/chat")
-    @login_required
+    @assistant_access_required
     def chat():
         user = current_user()
-        profile = get_profile(user.id)
-        if profile is None:
+        guest = is_guest()
+        profile = get_profile(user.id) if user is not None else None
+        if not guest and profile is None:
             return jsonify({"error": "Please complete your profile first."}), 403
 
         payload = request.get_json(silent=True) or {}
         message = str(payload.get("message", "")).strip()
         conversation_id = str(payload.get("conversationId", "")).strip()
         selected_language = normalize_language(
-            payload.get("selectedLanguage") or profile.preferred_language
+            payload.get("selectedLanguage")
+            or (profile.preferred_language if profile else session.get("guest_language"))
         )
+        subject_key = current_subject_key()
 
         if not message:
             return jsonify({"error": "Please enter a message."}), 400
@@ -106,12 +130,12 @@ def create_app() -> Flask:
                 {
                     "answer": word_count_answer,
                     "conversationId": conversation_id,
-                    "toolsUsed": [],
+                    "toolsUsed": ["Word Count"],
                 }
             )
 
         previous_response_id = conversation_memory.get_previous_response_id(
-            user.id,
+            subject_key,
             conversation_id,
         )
 
@@ -119,7 +143,7 @@ def create_app() -> Flask:
             agent_response = get_agent().respond(
                 user_message=message,
                 previous_response_id=previous_response_id,
-                profile=profile.to_agent_context(),
+                profile=(profile.to_agent_context() if profile else None),
                 selected_language=selected_language,
             )
         except Exception:
@@ -136,7 +160,7 @@ def create_app() -> Flask:
                 500,
             )
 
-        conversation_memory.save_response_id(user.id, conversation_id, agent_response.response_id)
+        conversation_memory.save_response_id(subject_key, conversation_id, agent_response.response_id)
 
         return jsonify(
             {
@@ -147,30 +171,33 @@ def create_app() -> Flask:
         )
 
     @app.post("/api/chat/stream")
-    @login_required
+    @assistant_access_required
     def chat_stream():
         """Stream tool activity, then deliver the same completed chat payload."""
 
         user = current_user()
-        profile = get_profile(user.id)
-        if profile is None:
+        guest = is_guest()
+        profile = get_profile(user.id) if user is not None else None
+        if not guest and profile is None:
             return jsonify({"error": "Please complete your profile first."}), 403
 
         payload = request.get_json(silent=True) or {}
         message = str(payload.get("message", "")).strip()
         conversation_id = str(payload.get("conversationId", "")).strip() or uuid4().hex
         selected_language = normalize_language(
-            payload.get("selectedLanguage") or profile.preferred_language
+            payload.get("selectedLanguage")
+            or (profile.preferred_language if profile else session.get("guest_language"))
         )
+        subject_key = current_subject_key()
 
         if not message:
             return jsonify({"error": "Please enter a message."}), 400
 
         previous_response_id = conversation_memory.get_previous_response_id(
-            user.id,
+            subject_key,
             conversation_id,
         )
-        profile_context = profile.to_agent_context()
+        profile_context = profile.to_agent_context() if profile else {}
 
         def generate():
             yield _ndjson_event({"type": "status", "status": "thinking"})
@@ -182,7 +209,7 @@ def create_app() -> Flask:
                         "type": "result",
                         "answer": word_count_answer,
                         "conversationId": conversation_id,
-                        "toolsUsed": [],
+                        "toolsUsed": ["Word Count"],
                     }
                 )
                 return
@@ -209,7 +236,7 @@ def create_app() -> Flask:
                     raise RuntimeError("The agent did not return a completed response.")
 
                 conversation_memory.save_response_id(
-                    user.id,
+                    subject_key,
                     conversation_id,
                     agent_response.response_id,
                 )
@@ -243,13 +270,13 @@ def create_app() -> Flask:
         )
 
     @app.post("/api/clear")
-    @login_required
+    @assistant_access_required
     def clear():
-        user = current_user()
+        subject_key = current_subject_key()
         payload = request.get_json(silent=True) or {}
         conversation_id = str(payload.get("conversationId", "")).strip()
 
-        conversation_memory.clear(user.id, conversation_id or None)
+        conversation_memory.clear(subject_key, conversation_id or None)
 
         return jsonify({"ok": True})
 

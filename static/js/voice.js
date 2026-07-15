@@ -27,6 +27,10 @@ function language() {
   return window.GovGuideChat?.selectedLanguage() || window.GovGuideI18n?.getLanguage() || "en";
 }
 
+function csrfToken() {
+  return window.GovGuideI18n?.csrfToken() || document.querySelector("meta[name='csrf-token']")?.content || "";
+}
+
 function formatElapsed(milliseconds) {
   const elapsedSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, "0");
@@ -220,6 +224,7 @@ async function transcribe(blob, filename) {
 
   const response = await fetch("/api/voice/transcribe", {
     method: "POST",
+    headers: { "X-CSRF-Token": csrfToken() },
     body: formData,
   });
   const data = await response.json().catch(() => ({}));
@@ -372,7 +377,7 @@ async function toggleSpeechPlayback(text, article, button) {
   try {
     const response = await fetch("/api/voice/speak", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
       body: JSON.stringify({
         text,
         preferredLanguage: language(),

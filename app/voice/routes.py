@@ -4,7 +4,7 @@ from io import BytesIO
 
 from flask import Blueprint, jsonify, request, send_file
 
-from app.auth.services import login_required
+from app.auth.services import assistant_access_required
 from app.profiles.services import normalize_language
 from app.voice.services import (
     MAX_AUDIO_BYTES,
@@ -19,7 +19,7 @@ voice_bp = Blueprint("voice", __name__)
 
 
 @voice_bp.post("/api/voice/transcribe")
-@login_required
+@assistant_access_required
 def transcribe():
     if request.content_length and request.content_length > MAX_AUDIO_BYTES + 1024 * 1024:
         return jsonify({"error": "The recording is too large. Please record a shorter message."}), 413
@@ -38,7 +38,7 @@ def transcribe():
 
 
 @voice_bp.post("/api/voice/speak")
-@login_required
+@assistant_access_required
 def speak():
     payload = request.get_json(silent=True) or {}
     try:

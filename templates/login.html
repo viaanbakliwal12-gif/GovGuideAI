@@ -2,13 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Login - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body data-require-language>
+  <body data-require-language data-auth-page>
     <main class="auth-shell">
-      <section class="auth-card">
+      <section class="auth-card" aria-labelledby="authTitle">
         <div class="brand-lockup">
           <span class="brand-mark" aria-hidden="true">G</span>
           <div>
@@ -17,17 +18,12 @@
           </div>
         </div>
         <div class="auth-intro">
-          <h2 data-i18n="login">Login</h2>
-          <p class="privacy-copy" data-i18n="loginCopy">Log in to use your saved profile for personalized government-service and scheme suggestions.</p>
+          <h2 id="authTitle" data-i18n="login">Login</h2>
+          <p class="privacy-copy" data-i18n="loginOtpCopy">Verify your email or phone number to securely access your saved profile.</p>
         </div>
         {% if message %}<p class="notice success">{{ message }}</p>{% endif %}
-        {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
-        <form class="stacked-form" method="post" action="{{ url_for('auth.login') }}">
-          <input type="hidden" name="selected_language" value="en">
-          <label><span data-i18n="email">Email</span> <input name="email" type="email" required autocomplete="email"></label>
-          <label><span data-i18n="password">Password</span> <input name="password" type="password" required autocomplete="current-password"></label>
-          <button class="primary-button" type="submit" data-i18n="login">Login</button>
-        </form>
+        {% if error %}<p class="notice error" {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
+        {% include "_auth_methods.html" %}
         <p class="form-footer"><span data-i18n="newHere">New here?</span> <a href="{{ url_for('auth.signup') }}" data-i18n="createAccount">Create an account</a></p>
       </section>
     </main>

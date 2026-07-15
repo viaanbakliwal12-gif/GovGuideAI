@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Profile Setup - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
@@ -19,6 +20,7 @@
         <p class="privacy-copy" data-i18n="profileSetupCopy">This helps GovGuideAI suggest schemes and services without asking you to repeat basic details. Do not enter Aadhaar, PAN, bank details, OTPs, or exact home address.</p>
         {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
         <form class="profile-form" method="post" action="{{ url_for('profiles.setup_profile_post') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           {% include "_profile_fields.html" %}
           <div class="form-actions">
             <button class="primary-button" type="submit" data-i18n="saveProfile">Save Profile</button>

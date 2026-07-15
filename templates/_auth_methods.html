@@ -1,0 +1,84 @@
+<div class="auth-methods">
+  <div class="auth-tabs" role="tablist" aria-label="Authentication method">
+    <button
+      id="emailTab"
+      class="auth-tab"
+      type="button"
+      role="tab"
+      aria-selected="{{ 'true' if active_mode == 'email' else 'false' }}"
+      aria-controls="emailPanel"
+      data-auth-tab="email"
+      data-i18n="continueWithEmail"
+    >Continue with email</button>
+    <button
+      id="phoneTab"
+      class="auth-tab"
+      type="button"
+      role="tab"
+      aria-selected="{{ 'true' if active_mode == 'phone' else 'false' }}"
+      aria-controls="phonePanel"
+      data-auth-tab="phone"
+      data-i18n="continueWithPhone"
+    >Continue with phone</button>
+  </div>
+
+  <form class="stacked-form auth-code-form" method="post" action="{{ url_for('auth.request_code') }}" data-auth-code-form>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="purpose" value="{{ purpose }}">
+    <input type="hidden" name="channel" value="{{ 'phone' if active_mode == 'phone' else 'email' }}" data-auth-channel>
+    <input type="hidden" name="selected_language" value="en">
+
+    <div id="emailPanel" class="auth-panel" role="tabpanel" aria-labelledby="emailTab" data-auth-panel="email" {% if active_mode != 'email' %}hidden{% endif %}>
+      <label><span data-i18n="emailAddress">Email address</span>
+        <input name="email" type="email" required autocomplete="email" inputmode="email" value="{{ email }}" data-auth-input="email">
+      </label>
+    </div>
+
+    <div id="phonePanel" class="auth-panel" role="tabpanel" aria-labelledby="phoneTab" data-auth-panel="phone" {% if active_mode != 'phone' %}hidden{% endif %}>
+      <label><span data-i18n="country">Country</span>
+        <select name="country" autocomplete="country" data-country-select data-auth-input="phone">
+          {% for country in countries %}
+            <option value="{{ country.code }}" {% if country.code == selected_country %}selected{% endif %}>{{ country.flag }} {{ country.name }} ({{ country.dial_code }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label><span data-i18n="phoneNumber">Phone number</span>
+        <input name="phone_number" type="tel" required autocomplete="tel-national" inputmode="tel" value="{{ phone_number }}" data-auth-input="phone" data-i18n-placeholder="phoneExample" placeholder="e.g. 98765 43210">
+      </label>
+    </div>
+
+    <button class="primary-button" type="submit" data-submit-label="sendCode" data-i18n="sendCode">Send code</button>
+  </form>
+</div>
+
+<div class="auth-divider"><span data-i18n="or">or</span></div>
+
+<section class="guest-option" aria-labelledby="guestTitle">
+  <form method="post" action="{{ url_for('auth.continue_as_guest') }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="selected_language" value="en">
+    <button id="guestTitle" class="guest-button" type="submit" data-i18n="continueAsGuest">Continue as Guest</button>
+  </form>
+  <p data-i18n="guestExplanation">You can use GovGuideAI without creating an account. Recommendations may be less personalized, and your profile and chat history may not be saved.</p>
+  <details class="guest-limitations">
+    <summary data-i18n="reducedPersonalization">Reduced personalization</summary>
+    <ul>
+      <li data-i18n="noPermanentProfile">No permanent profile</li>
+      <li data-i18n="noSavedHistory">No permanent saved chat history or cross-device access</li>
+      <li data-i18n="temporaryMemoryOnly">Temporary conversation memory only</li>
+    </ul>
+  </details>
+</section>
+
+<details class="legacy-auth">
+  <summary data-i18n="usePasswordInstead">Use email and password instead</summary>
+  <form class="stacked-form" method="post" action="{{ url_for('auth.login' if purpose == 'login' else 'auth.signup') }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="selected_language" value="en">
+    <label><span data-i18n="email">Email</span> <input name="email" type="email" required autocomplete="email"></label>
+    <label><span data-i18n="password">Password</span> <input name="password" type="password" minlength="8" required autocomplete="{{ 'current-password' if purpose == 'login' else 'new-password' }}"></label>
+    <button class="secondary-button" type="submit" data-i18n="{{ 'loginWithPassword' if purpose == 'login' else 'createWithPassword' }}">{{ 'Login with password' if purpose == 'login' else 'Create with password' }}</button>
+  </form>
+</details>
+
+<p class="auth-privacy" data-i18n="authPrivacyNotice">Email or phone verification is used to secure your account. Guest users can continue without sharing these details, but personalization and saved history will be limited.</p>
