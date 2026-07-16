@@ -7,11 +7,6 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from app.auth.supabase import (
-    SupabaseAuthenticationError,
-    SupabaseIdentity,
-    SupabaseNetworkError,
-)
 from app.database.session import get_connection
 from app.server import create_app
 
@@ -28,8 +23,6 @@ class AuthFlowTestCase(unittest.TestCase):
                 "SECRET_KEY": "test-secret-key",
                 "FLASK_ENV": "development",
                 "APP_ENV": "development",
-                "SUPABASE_URL": "https://project-ref.supabase.co",
-                "SUPABASE_ANON_KEY": "test-public-anon-key",
             },
             clear=False,
         )
@@ -43,27 +36,8 @@ class AuthFlowTestCase(unittest.TestCase):
         self.database_patch.stop()
         self.directory.cleanup()
 
-    @staticmethod
-    def identity(
-        email: str = "person@example.com",
-        user_id: str = "9ce31cba-7890-4e42-b3bc-bf7e5f932659",
-    ) -> SupabaseIdentity:
-        return SupabaseIdentity(
-            user_id=user_id,
-            email=email,
-            created_at="2026-07-16T12:00:00+00:00",
-            email_confirmed_at="2026-07-16T12:01:00+00:00",
-        )
-
-    def create_session(self, identity: SupabaseIdentity | None = None, **payload):
-        with patch(
-            "app.auth.routes.verify_supabase_access_token",
-            return_value=identity or self.identity(),
-        ):
-            return self.client.post(
-                "/api/auth/session",
-                json={"access_token": "verified-access-token", **payload},
-            )
+    def login(self, email: str):
+        return self.client.post("/login", data={"email": email}, follow_redirects=False)
 
     def add_profile(self, user_id: int) -> None:
         with get_connection() as db:
@@ -79,124 +53,146 @@ class AuthFlowTestCase(unittest.TestCase):
             )
 
 
-class SupabaseAuthenticationTests(AuthFlowTestCase):
-    def test_login_page_is_email_otp_ui_and_signup_routes_to_it(self) -> None:
+class EmailOnlyAuthenticationTests(AuthFlowTestCase):
+    def test_login_page_has_one_email_form_and_no_provider_ui(self) -> None:
         response = self.client.get("/login")
         page = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('type="email"', page)
-        self.assertIn("Send OTP", page)
-        self.assertIn('autocomplete="one-time-code"', page)
-        self.assertIn('maxlength="6"', page)
-        self.assertIn("Verify OTP", page)
-        self.assertIn("Change Email", page)
-        self.assertIn("Resend Code", page)
-        self.assertIn("@supabase/supabase-js@2", page)
+        self.assertEqual(page.count('type="email"'), 1)
+        self.assertIn('method="post"', page)
+        self.assertIn('action="/login"', page)
+        self.assertIn("Continue with Email", page)
+        self.assertIn("Continue as Guest", page)
+        self.assertNotIn('type="password"', page)
+        self.assertNotIn('autocomplete="one-time-code"', page)
+        self.assertNotIn("Send OTP", page)
+        self.assertNotIn("Supabase", page)
+        self.assertNotIn("auth.js", page)
         self.assertEqual(self.client.get("/signup").status_code, 302)
-        self.assertEqual(self.client.post("/login").status_code, 405)
 
-    def test_public_config_exposes_exactly_two_public_fields(self) -> None:
-        response = self.client.get("/api/auth/config")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.get_json(),
-            {
-                "SUPABASE_URL": "https://project-ref.supabase.co",
-                "SUPABASE_ANON_KEY": "test-public-anon-key",
-            },
-        )
-        self.assertIn("no-store", response.headers["Cache-Control"])
+    def test_new_email_creates_passwordless_local_user_and_starts_session(self) -> None:
+        with self.client.session_transaction() as browser_session:
+            browser_session["language_selected"] = True
+            browser_session["selected_language"] = "hi"
 
-    def test_missing_config_is_safe_and_does_not_expose_other_environment(self) -> None:
-        with patch.dict(
-            os.environ,
-            {"SUPABASE_URL": "", "SUPABASE_ANON_KEY": ""},
-            clear=False,
-        ):
-            response = self.client.get("/api/auth/config")
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(
-            response.get_json(),
-            {"SUPABASE_URL": "", "SUPABASE_ANON_KEY": ""},
-        )
-        self.assertNotIn("SECRET_KEY", response.get_data(as_text=True))
+        response = self.login("Person@Example.com")
 
-    def test_verified_supabase_identity_creates_local_profile_account(self) -> None:
-        response = self.create_session(selected_language="hi")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["next"], "/profile/setup")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/profile/setup")
         with get_connection() as db:
             row = db.execute(
-                "SELECT id, email, verified_email, password_hash, supabase_user_id FROM users"
+                """
+                SELECT id, email, verified_email, password_hash,
+                       last_login_date, last_login_at, supabase_user_id
+                FROM users
+                """
             ).fetchone()
         self.assertEqual(row["email"], "person@example.com")
-        self.assertEqual(row["verified_email"], "person@example.com")
+        self.assertIsNone(row["verified_email"])
         self.assertIsNone(row["password_hash"])
-        self.assertEqual(row["supabase_user_id"], self.identity().user_id)
+        self.assertIsNone(row["supabase_user_id"])
+        self.assertTrue(row["last_login_date"])
+        self.assertTrue(row["last_login_at"])
         with self.client.session_transaction() as browser_session:
             self.assertEqual(browser_session["user_id"], row["id"])
             self.assertEqual(browser_session["selected_language"], "hi")
+            self.assertTrue(browser_session["language_selected"])
 
-    def test_existing_email_is_safely_linked_and_profile_is_preserved(self) -> None:
+    def test_existing_email_reuses_local_record_and_preserves_profile_and_legacy_fields(self) -> None:
         with get_connection() as db:
             db.execute(
                 """
-                INSERT INTO users (email, password_hash, created_date, created_at)
-                VALUES ('person@example.com', 'legacy-hash', '2026-01-01', '2026-01-01')
+                INSERT INTO users (
+                    email, password_hash, created_date, created_at,
+                    verified_email, email_verified_at, supabase_user_id
+                ) VALUES (
+                    'person@example.com', 'legacy-hash', '2026-01-01',
+                    '2026-01-01', 'person@example.com', '2026-01-01',
+                    'legacy-provider-id'
+                )
                 """
             )
             user_id = db.execute("SELECT id FROM users").fetchone()[0]
         self.add_profile(user_id)
 
-        response = self.create_session(next="/profile")
+        response = self.login("PERSON@example.com")
 
-        self.assertEqual(response.get_json()["next"], "/profile")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/chat")
         with get_connection() as db:
             row = db.execute(
-                "SELECT supabase_user_id, password_hash FROM users WHERE id = ?",
+                """
+                SELECT id, password_hash, supabase_user_id, last_login_at
+                FROM users WHERE id = ?
+                """,
                 (user_id,),
             ).fetchone()
             profile_count = db.execute("SELECT COUNT(*) FROM profiles").fetchone()[0]
-        self.assertEqual(row["supabase_user_id"], self.identity().user_id)
+            user_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        self.assertEqual(row["id"], user_id)
         self.assertEqual(row["password_hash"], "legacy-hash")
+        self.assertEqual(row["supabase_user_id"], "legacy-provider-id")
+        self.assertTrue(row["last_login_at"])
         self.assertEqual(profile_count, 1)
+        self.assertEqual(user_count, 1)
 
-    def test_invalid_token_and_supabase_network_failure_are_clear(self) -> None:
-        with patch(
-            "app.auth.routes.verify_supabase_access_token",
-            side_effect=SupabaseAuthenticationError("The session is invalid or expired."),
-        ):
-            invalid = self.client.post(
-                "/api/auth/session", json={"access_token": "invalid"}
+    def test_verified_email_only_record_is_reused(self) -> None:
+        with get_connection() as db:
+            db.execute(
+                """
+                INSERT INTO users (
+                    email, password_hash, created_date, created_at,
+                    verified_email, verified_phone
+                ) VALUES (
+                    NULL, NULL, '2026-01-01', '2026-01-01',
+                    'legacy@example.com', '+14155552671'
+                )
+                """
             )
-        with patch(
-            "app.auth.routes.verify_supabase_access_token",
-            side_effect=SupabaseNetworkError("Check the network and try again."),
-        ):
-            offline = self.client.post(
-                "/api/auth/session", json={"access_token": "valid-but-offline"}
-            )
-        self.assertEqual(invalid.status_code, 401)
-        self.assertIn("expired", invalid.get_json()["error"])
-        self.assertEqual(offline.status_code, 502)
-        self.assertIn("network", offline.get_json()["error"])
+            user_id = db.execute("SELECT id FROM users").fetchone()[0]
+        self.add_profile(user_id)
 
-    def test_logout_clears_server_session(self) -> None:
-        self.create_session()
-        response = self.client.post("/logout")
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/login", response.headers["Location"])
+        response = self.login("legacy@example.com")
+
+        self.assertEqual(response.headers["Location"], "/chat")
+        with self.client.session_transaction() as browser_session:
+            self.assertEqual(browser_session["user_id"], user_id)
+        with get_connection() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM users").fetchone()[0], 1)
+
+    def test_invalid_email_returns_form_error_without_creating_user(self) -> None:
+        response = self.login("not-an-email")
+        page = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Enter a valid email address.", page)
+        with get_connection() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM users").fetchone()[0], 0)
         with self.client.session_transaction() as browser_session:
             self.assertNotIn("user_id", browser_session)
 
-    def test_startup_logs_supabase_otp_auth(self) -> None:
+    def test_old_provider_auth_endpoints_are_removed(self) -> None:
+        self.assertEqual(self.client.get("/api/auth/config").status_code, 404)
+        self.assertEqual(
+            self.client.post("/api/auth/session", json={"access_token": "unused"}).status_code,
+            404,
+        )
+
+    def test_logout_clears_server_session(self) -> None:
+        self.login("person@example.com")
+        response = self.client.post("/logout")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/login")
+        with self.client.session_transaction() as browser_session:
+            self.assertNotIn("user_id", browser_session)
+
+    def test_startup_logs_local_email_auth(self) -> None:
         with self.assertLogs("app.server", level="INFO") as captured:
             create_app()
         combined = "\n".join(captured.output)
-        self.assertIn("Authentication: Supabase email OTP", combined)
-        self.assertNotIn("Development OTP", combined)
+        self.assertIn("Authentication: local email-only session", combined)
+        self.assertNotIn("Supabase", combined)
 
 
 class WelcomeAndAccessTests(AuthFlowTestCase):
@@ -214,7 +210,7 @@ class WelcomeAndAccessTests(AuthFlowTestCase):
         self.assertEqual(profile.headers["Location"], "/login?next=/profile")
         self.assertEqual(chat.headers["Location"], "/login?next=/chat")
 
-    def test_external_next_url_is_not_used(self) -> None:
+    def test_external_next_url_is_not_rendered_or_used(self) -> None:
         response = self.client.get("/login?next=//example.com/escape")
         self.assertNotIn("//example.com/escape", response.get_data(as_text=True))
 
@@ -255,25 +251,27 @@ class GuestModeTests(AuthFlowTestCase):
 
 
 class SecurityBoundaryTests(AuthFlowTestCase):
-    def test_session_exchange_requires_csrf_outside_testing_mode(self) -> None:
+    def test_email_login_requires_csrf_outside_testing_mode(self) -> None:
         self.app.config["TESTING"] = False
         page = self.client.get("/login")
-        match = re.search(r'<meta name="csrf-token" content="([^"]+)"', page.get_data(as_text=True))
+        match = re.search(
+            r'name="_csrf_token" value="([^"]+)"',
+            page.get_data(as_text=True),
+        )
         self.assertIsNotNone(match)
-        with patch(
-            "app.auth.routes.verify_supabase_access_token",
-            return_value=self.identity(),
-        ):
-            rejected = self.client.post(
-                "/api/auth/session", json={"access_token": "verified-access-token"}
-            )
-            accepted = self.client.post(
-                "/api/auth/session",
-                json={"access_token": "verified-access-token"},
-                headers={"X-CSRF-Token": match.group(1)},
-            )
+
+        rejected = self.client.post("/login", data={"email": "person@example.com"})
+        accepted = self.client.post(
+            "/login",
+            data={
+                "email": "person@example.com",
+                "_csrf_token": match.group(1),
+            },
+        )
+
         self.assertEqual(rejected.status_code, 400)
-        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.status_code, 302)
+        self.assertEqual(accepted.headers["Location"], "/profile/setup")
 
 
 if __name__ == "__main__":

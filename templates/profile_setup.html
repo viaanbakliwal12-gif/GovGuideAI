@@ -7,7 +7,7 @@
     <title>Profile Setup - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}" {% if session.get('supabase_authenticated') %}data-supabase-protected{% endif %}>
+  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}">
     <main class="profile-shell">
       <section class="profile-form-card">
         <div class="brand-lockup">
@@ -33,15 +33,13 @@
         {% if show_admin_setup_link %}
           <a class="secondary-button" href="{{ url_for('admin.setup') }}" data-i18n="administratorSetup">Administrator Setup</a>
         {% endif %}
-        <form class="profile-setup-logout" method="post" action="{{ url_for('auth.logout') }}" data-supabase-logout>
+        <form class="profile-setup-logout" method="post" action="{{ url_for('auth.logout') }}">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="text-button" type="submit" data-i18n="logout">Logout</button>
         </form>
       </section>
     </main>
     <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-language-fix') }}" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous" defer></script>
-    <script src="{{ url_for('static', filename='js/auth.js', v='20260716-supabase-otp') }}" defer></script>
     <script src="{{ url_for('static', filename='js/profile.js') }}" defer></script>
   </body>
 </html>

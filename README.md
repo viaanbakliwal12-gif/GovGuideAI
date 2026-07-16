@@ -1,21 +1,23 @@
 # GovGuideAI
 
-GovGuideAI is a Flask website for beginner-friendly guidance about Indian government schemes, services, documents, passports, and grievance procedures. It includes Supabase email OTP login, guest mode, profile personalization, multilingual UI, text and voice chat, conversation memory, and official-source search rules.
-
-> This repository currently runs Flask, despite some earlier project descriptions referring to FastAPI. `main.py` loads the Flask factory in `app/server.py`; the Supabase endpoints are implemented in that existing application so no unrelated framework migration is required.
+GovGuideAI is a Flask website for beginner-friendly guidance about Indian government schemes, services, documents, passports, and grievance procedures. It includes local email-only login, guest mode, profile personalization, multilingual UI, text and voice chat, conversation memory, admin tools, and official-source search rules.
 
 ## Authentication
 
-The website uses the official `@supabase/supabase-js` v2 browser client. Supabase generates, sends, and verifies every six-digit email OTP. GovGuideAI does not generate, hash, log, or store OTP values.
+Login is intentionally simple and local:
 
-After Supabase verifies the OTP, the browser sends the returned access token to `POST /api/auth/session`. The server validates that token against the project's Supabase Auth `/auth/v1/user` endpoint before linking it to the existing local user/profile record and creating the GovGuideAI session cookie. A browser-provided email or user ID is never trusted by itself.
+1. The user submits one email address to `POST /login`.
+2. Flask validates and normalizes the email.
+3. SQLite looks for an active user whose `email` or `verified_email` matches.
+4. If no local user matches, Flask creates a passwordless local user automatically.
+5. Flask starts the existing secure session immediately.
+6. New users go to `/profile/setup`; returning users go to `/chat`.
 
-`GET /api/auth/config` exposes exactly these public browser values:
+No password, OTP, magic link, email message, email verification, external identity provider, SMTP configuration, or browser authentication SDK is used.
 
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
+Existing local records remain compatible: old password hashes, verified contact fields, provider-link columns, profiles, roles, and user IDs are left unchanged. They are simply no longer required for login.
 
-It does not expose `SECRET_KEY`, `OPENAI_API_KEY`, service-role keys, or any other environment values. The app rejects `sb_secret_` and legacy JWT keys whose role is `service_role`.
+Because possession of an inbox is not checked, knowing an existing account email is sufficient to use that account. This flow is appropriate only where that tradeoff is explicitly intended.
 
 ## Install
 
@@ -34,44 +36,30 @@ python -m venv .venv
 
 ## Configure
 
-Copy the example file, then fill in private/local values:
+Copy the example file:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Required authentication settings:
+Environment variables:
 
-```dotenv
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_ANON_KEY=your_supabase-publishable-or-anon-key
-```
+- `SECRET_KEY` is required for Flask sessions and CSRF protection.
+- `OPENAI_API_KEY` is required for live AI chat, transcription, and speech generation.
+- `APP_ENV` and `FLASK_ENV` are optional environment labels; development is the default.
+- `DATABASE_PATH` is optional; the default is `govguideai.sqlite3`.
+- `PORT` is optional; the default is `5000`.
+- `GUEST_SESSION_TTL_HOURS` is optional; the default is `24`.
+- `PASSWORD_SETUP_TOKEN_MINUTES` is optional and applies only to the retained legacy admin password-setup tool.
+- `ADMIN_EMAIL` is optional and used only by the guarded terminal admin-promotion backup.
 
-Use only the public publishable key (`sb_publishable_...`) or legacy anon key. Never use a service-role key or `sb_secret_...` key. `SECRET_KEY` is also required by the Flask application, and `OPENAI_API_KEY` is required for live AI chat.
+No authentication-provider or email-delivery environment variables are required.
 
-The root `.env` is ignored by Git through the `.env` and `.env.*` rules in `.gitignore`; `.env.example` is the only exception and contains placeholders only.
-
-## Supabase dashboard setup
-
-1. Open the Supabase project and go to **Authentication → Providers → Email**. Enable the Email provider.
-2. Go to **Authentication → Email Templates → Magic Link** (shown as the Magic Link/OTP template in some dashboard versions).
-3. Make the email body include the six-digit token variable, for example:
-
-   ```html
-   <h2>Your GovGuideAI login code</h2>
-   <p>Enter this code in GovGuideAI: <strong>{{ .Token }}</strong></p>
-   ```
-
-   Using `{{ .Token }}` is what makes `signInWithOtp` send a code instead of only a magic link.
-4. Under **Authentication → URL Configuration**, set the Site URL to the deployed GovGuideAI origin. For local testing, use `http://127.0.0.1:5000`.
-5. Keep the OTP request interval at 60 seconds or longer. The website's Resend Code button uses the same 60-second cooldown.
-6. For production delivery, configure a supported custom SMTP provider in **Authentication → SMTP Settings** and test delivery before launch.
-
-No Supabase database table, service-role key, Auth admin API, or manually generated OTP is needed by this integration.
+The root `.env` is ignored by Git. `.env.example` contains placeholders only.
 
 ## Migrate and run
 
-Apply the non-destructive SQLite migration that adds the Supabase user ID link:
+Apply the non-destructive SQLite compatibility migrations:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\migrate.ps1
@@ -85,21 +73,17 @@ Startup also applies migrations automatically. Run the website:
 
 Then open `http://127.0.0.1:5000/`.
 
-## Test the OTP flow in the website
+## Test the email-only login
 
-1. Open `http://127.0.0.1:5000/`, choose a language, and continue to Login.
-2. Enter a real email inbox and click **Send OTP**.
-3. Confirm that the six-digit field, **Verify OTP**, **Change Email**, and disabled **Resend Code** countdown appear.
-4. Copy the six-digit code from the Supabase email, paste it into the field, and press Enter or click **Verify OTP**.
-5. A new user should open `/profile/setup`; a user with a completed GovGuideAI profile should open `/chat` (or the originally requested protected page).
-6. Refresh the page and confirm the Supabase browser session is restored without requesting another code.
-7. Click **Logout** and confirm the site returns to `/login` and does not immediately sign back in.
-8. Try a malformed email, a wrong code, an expired code, and repeated sends. Confirm that the page shows clear validation, invalid/expired, network, and rate-limit messages.
-9. Open `/profile` in a signed-out/private browser. Confirm it redirects to `/login?next=/profile`.
+1. Open the site, choose a language, and continue to Login.
+2. Enter a valid email and click **Continue with Email**.
+3. Confirm a new email opens `/profile/setup`.
+4. Complete the profile, log out, and submit the same email again.
+5. Confirm the returning account opens `/chat` and the saved profile remains.
+6. Confirm **Continue as Guest**, chat, voice, language selection, profile editing, logout, and admin routes still work as expected.
+7. Submit a malformed email and confirm the login page returns a clear validation error without creating a user.
 
-If the email contains only a link instead of a six-digit code, update the Supabase Magic Link/OTP email template to include `{{ .Token }}`.
-
-## Automated tests and startup checks
+## Automated checks
 
 Run all tests:
 
@@ -113,24 +97,21 @@ Compile the Python source:
 & .\.venv\Scripts\python.exe -m compileall -q app main.py
 ```
 
-Start the application for a local health check:
+Import and create the Flask application:
 
 ```powershell
-& .\.venv\Scripts\python.exe main.py
+& .\.venv\Scripts\python.exe -c "from app.server import create_app; app = create_app(); print(app.url_map)"
 ```
-
-Then visit `http://127.0.0.1:5000/health`; it should return `{"status":"ok"}`.
 
 ## Project structure
 
-- `app/auth/supabase.py` — safe public configuration and server-side Supabase access-token validation
-- `app/auth/routes.py` — login, configuration, session exchange, guest, logout, and legacy account setup routes
-- `app/auth/services.py` — local user/profile linking and GovGuideAI sessions
-- `static/js/auth.js` — official Supabase client initialization, OTP UI, session restore, guards, and logout
-- `templates/login.html` — responsive email OTP login page
-- `app/database/` — SQLite connections and non-destructive migrations
-- `app/profiles/`, `app/agent/`, `app/tools/`, `app/voice/` — existing profiles, chat, tools, and voice features
+- `app/auth/routes.py` — email-only login, guest, logout, account deletion, and retained legacy account-setup routes
+- `app/auth/services.py` — local user lookup/creation and Flask session helpers
+- `templates/login.html` — single-field email login page
+- `app/database/` — SQLite connections and non-destructive compatibility migrations
+- `app/profiles/`, `app/agent/`, `app/tools/`, `app/voice/` — profiles, chat, tools, and voice features
+- `app/admin/` — admin setup, dashboard, exports, and promotion backup
 
 ## Privacy and repository safety
 
-SQLite remains the source of truth for GovGuideAI profiles. Supabase Auth is the identity provider. Access tokens and OTP codes are not written to the database or logs. `.gitignore` excludes `.env`, databases, exports, logs, virtual environments, caches, and generated audio.
+SQLite remains the source of truth for accounts and profiles. Login does not send email or contact an external authentication service. `.gitignore` excludes `.env`, databases, exports, logs, virtual environments, caches, and generated audio.

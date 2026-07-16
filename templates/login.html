@@ -11,11 +11,9 @@
     data-require-language
     data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}"
     data-selected-language="{{ session.get('selected_language', '') }}"
-    data-auth-page
-    data-auth-next="{{ next_url }}"
   >
     <main class="auth-shell">
-      <section class="auth-card" aria-labelledby="authTitle" data-otp-login>
+      <section class="auth-card" aria-labelledby="authTitle">
         <div class="brand-lockup">
           <span class="brand-mark" aria-hidden="true">G</span>
           <div>
@@ -26,13 +24,14 @@
 
         <div class="auth-intro">
           <h2 id="authTitle" data-i18n="login">Login</h2>
-          <p class="privacy-copy" data-i18n="loginOtpCopy">Enter your email and we will send a six-digit sign-in code.</p>
+          <p class="privacy-copy" data-i18n="loginEmailCopy">Enter your email to continue. No password or verification is required.</p>
         </div>
 
         {% if message %}<p class="notice success" role="status">{{ message }}</p>{% endif %}
-        <p class="notice auth-status" data-auth-status role="status" aria-live="polite" hidden></p>
+        {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
 
-        <form class="stacked-form auth-otp-form" data-email-form novalidate>
+        <form class="stacked-form auth-email-form" method="post" action="{{ url_for('auth.login_post') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <label for="loginEmail">
             <span data-i18n="emailAddress">Email address</span>
             <input
@@ -43,59 +42,19 @@
               autocomplete="email"
               inputmode="email"
               maxlength="254"
-              data-auth-email
+              value="{{ email }}"
               aria-describedby="emailHelp"
+              {% if error %}aria-invalid="true"{% endif %}
             >
-            <span id="emailHelp" class="field-help" data-i18n="otpEmailHelp">We will only use this address to send your secure login code.</span>
+            <span id="emailHelp" class="field-help" data-i18n="emailLoginHelp">Existing local accounts are reused automatically; otherwise a new account is created.</span>
           </label>
-          <button class="primary-button" type="submit" data-send-otp data-i18n="sendOtp">Send OTP</button>
+          <button class="primary-button" type="submit" data-i18n="continueWithEmail">Continue with Email</button>
         </form>
 
-        <section class="otp-step" data-otp-step aria-labelledby="otpStepTitle" hidden>
-          <div class="otp-step-heading">
-            <div>
-              <h3 id="otpStepTitle" data-i18n="enterOtp">Enter your code</h3>
-              <p class="field-help"><span data-i18n="codeSentTo">A six-digit code was sent to</span> <strong data-otp-email></strong>.</p>
-            </div>
-            <button class="text-button" type="button" data-change-email data-i18n="changeEmail">Change Email</button>
-          </div>
-
-          <form class="stacked-form auth-otp-form" data-verify-form novalidate>
-            <label for="loginOtp">
-              <span data-i18n="sixDigitOtp">Six-digit OTP</span>
-              <input
-                id="loginOtp"
-                name="otp"
-                class="otp-input"
-                type="text"
-                required
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                pattern="[0-9]{6}"
-                minlength="6"
-                maxlength="6"
-                aria-describedby="otpHelp"
-                data-otp-input
-              >
-              <span id="otpHelp" class="field-help" data-i18n="otpHelp">Enter the code from your Supabase email. You can paste all six digits.</span>
-            </label>
-            <button class="primary-button" type="submit" data-verify-otp data-i18n="verifyOtp">Verify OTP</button>
-          </form>
-
-          <div class="otp-secondary-actions">
-            <button class="text-button" type="button" data-resend-otp disabled>
-              <span data-resend-label data-i18n="resendCode">Resend Code</span>
-              <span data-resend-countdown aria-live="polite"></span>
-            </button>
-          </div>
-        </section>
-
         {% include "_guest_option.html" %}
-        <p class="auth-privacy" data-i18n="otpAuthPrivacy">Supabase generates, emails, and verifies each code. GovGuideAI never generates or stores OTP codes.</p>
+        <p class="auth-privacy" data-i18n="emailOnlyPrivacy">Submitting the form signs you in immediately with the local Flask session.</p>
       </section>
     </main>
-    <script src="{{ url_for('static', filename='js/i18n.js', v='20260716-supabase-otp') }}" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous" defer></script>
-    <script src="{{ url_for('static', filename='js/auth.js', v='20260716-supabase-otp') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/i18n.js', v='20260716-email-only') }}" defer></script>
   </body>
 </html>

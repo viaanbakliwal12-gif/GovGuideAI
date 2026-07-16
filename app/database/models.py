@@ -15,7 +15,6 @@ class User:
     phone_verified_at: str | None = None
     is_admin: bool = False
     deleted_at: str | None = None
-    supabase_user_id: str | None = None
 
     @property
     def display_identifier(self) -> str:

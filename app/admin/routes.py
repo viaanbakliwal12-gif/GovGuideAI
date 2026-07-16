@@ -21,9 +21,9 @@ from app.admin.services import (
     fetch_dashboard_summary,
     fetch_profile_page,
     first_admin_setup_completed,
-    promote_first_password_admin,
+    promote_first_local_admin,
     record_export_audit,
-    user_has_password_login,
+    user_has_email_login,
 )
 from app.auth.password_setup import PasswordSetupError, create_password_setup_token
 from app.auth.services import current_user
@@ -73,7 +73,7 @@ def setup():
 def setup_post():
     user = _first_admin_setup_user()
     try:
-        promote_first_password_admin(
+        promote_first_local_admin(
             user.id,
             request.form.get("confirmation", ""),
         )
@@ -158,7 +158,7 @@ def _first_admin_setup_user():
     if not is_development_environment() or first_admin_setup_completed():
         abort(404)
     user = current_user()
-    if user is None or not user_has_password_login(user):
+    if user is None or not user_has_email_login(user):
         abort(403)
     return user
 

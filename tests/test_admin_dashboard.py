@@ -15,7 +15,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.admin.services import (
     FIRST_ADMIN_CONFIRMATION,
     AdminPromotionError,
-    promote_password_admin,
+    promote_email_admin,
 )
 from app.database.session import get_connection
 from app.server import create_app
@@ -230,12 +230,12 @@ class AdminDashboardTests(unittest.TestCase):
         with get_connection() as db:
             self.assertEqual(db.execute("SELECT is_admin FROM users WHERE id = 2").fetchone()[0], 0)
 
-        user_id, changed = promote_password_admin("normal@example.com")
+        user_id, changed = promote_email_admin("normal@example.com")
         self.assertEqual((user_id, changed), (2, True))
         with get_connection() as db:
             self.assertEqual(db.execute("SELECT is_admin FROM users WHERE id = 2").fetchone()[0], 1)
         with self.assertRaises(AdminPromotionError):
-            promote_password_admin("admin@example.com")
+            promote_email_admin("admin@example.com")
 
     def test_admin_export_requires_csrf_outside_testing(self) -> None:
         self.app.config["TESTING"] = False
@@ -369,7 +369,7 @@ class FirstAdminWebsiteSetupTests(unittest.TestCase):
             browser_session.clear()
             browser_session["user_id"] = user_id
 
-    def test_password_user_can_complete_first_admin_setup_once(self) -> None:
+    def test_email_user_can_complete_first_admin_setup_once(self) -> None:
         self._login_as(2)
         setup_page = self.client.get("/admin/setup")
         self.assertEqual(setup_page.status_code, 200)
@@ -396,14 +396,13 @@ class FirstAdminWebsiteSetupTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(state["admin_user_id"], 2)
 
-    def test_setup_rejects_guests_passwordless_users_and_production(self) -> None:
+    def test_setup_accepts_email_only_user_and_rejects_guests_phone_only_and_production(self) -> None:
         self.client.post("/guest", data={"selected_language": "en"})
         self.assertEqual(self.client.get("/admin/setup").status_code, 403)
 
         self._login_as(1)
-        self.assertEqual(self.client.get("/admin/setup").status_code, 403)
+        self.assertEqual(self.client.get("/admin/setup").status_code, 200)
 
-        self._login_as(2)
         with patch.dict(
             os.environ,
             {
@@ -413,6 +412,24 @@ class FirstAdminWebsiteSetupTests(unittest.TestCase):
             clear=False,
         ):
             self.assertEqual(self.client.get("/admin/setup").status_code, 404)
+
+        with get_connection() as db:
+            db.execute(
+                """
+                INSERT INTO users (
+                    id, email, password_hash, created_date, verified_phone,
+                    phone_verified_at, created_at, is_admin
+                ) VALUES (3, NULL, NULL, ?, ?, ?, ?, 0)
+                """,
+                (
+                    "2026-07-03T00:00:00+00:00",
+                    "+14155552671",
+                    "2026-07-03T00:00:00+00:00",
+                    "2026-07-03T00:00:00+00:00",
+                ),
+            )
+        self._login_as(3)
+        self.assertEqual(self.client.get("/admin/setup").status_code, 403)
 
     def test_normal_user_cannot_promote_after_first_admin_exists(self) -> None:
         self._login_as(2)

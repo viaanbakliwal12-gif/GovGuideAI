@@ -69,7 +69,7 @@ Existing occupation values are not overwritten except for simple normalization s
 
 ## Authentication and Guest Tables
 
-`otp_challenges` is historical and currently unused. It stores a public random challenge reference, HMAC destination
+`otp_challenges` is historical and inactive. It stores a public random challenge reference, HMAC destination
 hash, encrypted destination, channel, purpose, salted/peppered OTP hash, expiry,
 attempt/resend counters, use time, send time, and an HMAC IP hash. It never
 stores a plaintext OTP.
@@ -83,8 +83,8 @@ migration copies all existing IDs and legacy fields before replacing the old
   NOT NULL email/password definition, allowing verified phone-only users without
   fake email addresses. It does not delete or recreate the database file.
 
-`otp_challenges` also records `delivery_method` and an optional provider
-reference. Neither field contains an OTP or provider credential.
+`otp_challenges` also records `delivery_method` and an optional historical
+provider reference. Neither field is used by the active email-only login.
 
 `export_audit_log` stores only:
 

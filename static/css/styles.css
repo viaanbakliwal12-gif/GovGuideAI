@@ -1435,52 +1435,9 @@ body {
 
 .guest-option,
 .auth-password-form,
-.auth-otp-form {
+.auth-email-form {
   display: grid;
   gap: var(--spacing-3);
-}
-
-.otp-step {
-  display: grid;
-  gap: var(--spacing-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-muted);
-  padding: var(--spacing-4);
-}
-
-.otp-step-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacing-3);
-}
-
-.otp-step-heading > div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.otp-step-heading strong {
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.otp-input {
-  font-size: 1.3rem;
-  font-weight: 900;
-  letter-spacing: 0.35em;
-  text-align: center;
-}
-
-.otp-secondary-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.auth-status {
-  margin: 0;
 }
 
 .auth-divider {
@@ -1574,26 +1531,9 @@ body {
 }
 
 .auth-password-form input[aria-invalid="true"],
-.auth-otp-form input[aria-invalid="true"] {
+.auth-email-form input[aria-invalid="true"] {
   border-color: var(--color-danger);
   background: var(--color-danger-soft);
-}
-
-@media (max-width: 520px) {
-  .otp-step-heading {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .otp-step-heading .text-button,
-  .otp-secondary-actions .text-button {
-    align-self: flex-start;
-  }
-
-  .otp-input {
-    font-size: 1.15rem;
-    letter-spacing: 0.25em;
-  }
 }
 
 .secure-link-output {

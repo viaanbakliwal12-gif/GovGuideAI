@@ -5,12 +5,11 @@ from functools import wraps
 import sqlite3
 
 from flask import jsonify, redirect, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
 
 from app.auth.validators import (
     IdentifierValidationError,
     normalize_email,
-    password_validation_error,
 )
 from app.database.models import User
 from app.database.session import get_connection
@@ -27,88 +26,67 @@ class AccountCreationError(ValueError):
         self.message = message
 
 
-def create_user(email: str, password: str) -> User:
+def find_or_create_local_user(email: str) -> tuple[User, bool]:
+    """Return the active local email account, creating it when needed."""
+
     try:
         email = normalize_email(email)
     except IdentifierValidationError:
         raise AccountCreationError("email", "Enter a valid email address.") from None
-    password_error = password_validation_error(password)
-    if password_error:
-        raise AccountCreationError("password", password_error)
 
+    now = utc_now()
     try:
         with get_connection() as db:
-            existing = db.execute(
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
                 """
-                SELECT 1 FROM users
+                SELECT * FROM users
                 WHERE deleted_at IS NULL
                   AND (
                     LOWER(COALESCE(email, '')) = ?
                     OR LOWER(COALESCE(verified_email, '')) = ?
                   )
+                ORDER BY
+                    CASE WHEN LOWER(COALESCE(email, '')) = ? THEN 0 ELSE 1 END,
+                    id
                 LIMIT 1
                 """,
-                (email, email),
+                (email, email, email),
             ).fetchone()
-            if existing is not None:
-                raise AccountCreationError(
-                    "email", "An account with this email already exists."
+
+            created = row is None
+            if created:
+                db.execute(
+                    """
+                    INSERT INTO users (
+                        email, password_hash, created_date, last_login_date,
+                        created_at, last_login_at
+                    ) VALUES (?, NULL, ?, ?, ?, ?)
+                    """,
+                    (email, now, now, now, now),
                 )
-            now = utc_now()
-            db.execute(
-                """
-                INSERT INTO users (
-                    email, password_hash, created_date, created_at
-                ) VALUES (?, ?, ?, ?)
-                """,
-                (email, _password_hash(password), now, now),
-            )
-            row = db.execute(
-                "SELECT * FROM users WHERE id = last_insert_rowid()"
-            ).fetchone()
-        return user_from_row(row)
+                row = db.execute(
+                    "SELECT * FROM users WHERE id = last_insert_rowid()"
+                ).fetchone()
+            else:
+                db.execute(
+                    """
+                    UPDATE users
+                    SET last_login_date = ?, last_login_at = ?
+                    WHERE id = ?
+                    """,
+                    (now, now, row["id"]),
+                )
+                row = db.execute(
+                    "SELECT * FROM users WHERE id = ?",
+                    (row["id"],),
+                ).fetchone()
     except sqlite3.IntegrityError:
         raise AccountCreationError(
-            "email", "An account with this email already exists."
+            "email", "This email could not be linked to a local account."
         ) from None
 
-
-def authenticate_user(email: str, password: str) -> User | None:
-    try:
-        normalized_email = normalize_email(email)
-    except IdentifierValidationError:
-        return None
-
-    with get_connection() as db:
-        row = db.execute(
-            """
-            SELECT * FROM users
-            WHERE deleted_at IS NULL
-              AND (
-                LOWER(COALESCE(email, '')) = ?
-                OR LOWER(COALESCE(verified_email, '')) = ?
-              )
-            ORDER BY CASE WHEN LOWER(COALESCE(email, '')) = ? THEN 0 ELSE 1 END, id
-            LIMIT 1
-            """,
-            (normalized_email, normalized_email, normalized_email),
-        ).fetchone()
-
-        if (
-            row is None
-            or not row["password_hash"]
-            or not check_password_hash(row["password_hash"], password)
-        ):
-            return None
-
-        now = utc_now()
-        db.execute(
-            "UPDATE users SET last_login_date = ?, last_login_at = ? WHERE id = ?",
-            (now, now, row["id"]),
-        )
-        row = db.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
-
-    return user_from_row(row)
+    return user_from_row(row), created
 
 
 def get_user_by_id(user_id: int) -> User | None:
@@ -136,105 +114,7 @@ def user_from_row(row) -> User:
         phone_verified_at=row["phone_verified_at"],
         is_admin=bool(row["is_admin"]),
         deleted_at=row["deleted_at"],
-        supabase_user_id=(
-            row["supabase_user_id"] if "supabase_user_id" in row.keys() else None
-        ),
     )
-
-
-def find_or_create_supabase_user(identity) -> User:
-    """Link a verified Supabase identity to the existing local profile record."""
-
-    now = utc_now()
-    confirmed_at = identity.email_confirmed_at or now
-    created_at = identity.created_at or now
-    try:
-        with get_connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute(
-                "SELECT * FROM users WHERE supabase_user_id = ? LIMIT 1",
-                (identity.user_id,),
-            ).fetchone()
-            if row is not None and row["deleted_at"]:
-                raise AccountCreationError("email", "That GovGuideAI account is unavailable.")
-
-            if row is None:
-                matches = db.execute(
-                    """
-                    SELECT * FROM users
-                    WHERE deleted_at IS NULL
-                      AND (
-                        LOWER(COALESCE(email, '')) = ?
-                        OR LOWER(COALESCE(verified_email, '')) = ?
-                      )
-                    ORDER BY id
-                    """,
-                    (identity.email, identity.email),
-                ).fetchall()
-                if len(matches) > 1:
-                    raise AccountCreationError(
-                        "email", "This email is linked to conflicting local accounts."
-                    )
-                row = matches[0] if matches else None
-                if row is not None and row["supabase_user_id"] not in {
-                    None,
-                    "",
-                    identity.user_id,
-                }:
-                    raise AccountCreationError(
-                        "email", "This email is already linked to another Supabase account."
-                    )
-
-            if row is None:
-                db.execute(
-                    """
-                    INSERT INTO users (
-                        email, password_hash, created_date, last_login_date,
-                        verified_email, email_verified_at, created_at,
-                        last_login_at, supabase_user_id
-                    ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        identity.email,
-                        created_at,
-                        now,
-                        identity.email,
-                        confirmed_at,
-                        created_at,
-                        now,
-                        identity.user_id,
-                    ),
-                )
-                row = db.execute(
-                    "SELECT * FROM users WHERE id = last_insert_rowid()"
-                ).fetchone()
-            else:
-                db.execute(
-                    """
-                    UPDATE users
-                    SET email = ?, verified_email = ?, email_verified_at = ?,
-                        last_login_date = ?, last_login_at = ?, supabase_user_id = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        identity.email,
-                        identity.email,
-                        confirmed_at,
-                        now,
-                        now,
-                        identity.user_id,
-                        row["id"],
-                    ),
-                )
-                row = db.execute(
-                    "SELECT * FROM users WHERE id = ?", (row["id"],)
-                ).fetchone()
-    except sqlite3.IntegrityError:
-        raise AccountCreationError(
-            "email", "This Supabase account could not be linked safely."
-        ) from None
-
-    return user_from_row(row)
 
 
 def current_user() -> User | None:
@@ -264,7 +144,7 @@ def login_required(view):
 
 
 def assistant_access_required(view):
-    """Allow either a verified/legacy user session or an active guest session."""
+    """Allow either a local user session or an active guest session."""
 
     @wraps(view)
     def wrapped_view(*args, **kwargs):

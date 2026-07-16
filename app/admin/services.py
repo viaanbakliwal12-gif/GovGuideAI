@@ -16,9 +16,7 @@ from app.database.session import get_connection
 
 ACCOUNT_TYPE_SQL = """
 CASE
-    WHEN u.supabase_user_id IS NOT NULL AND TRIM(u.supabase_user_id) <> '' THEN 'Supabase email OTP'
-    WHEN u.password_hash IS NOT NULL AND TRIM(u.password_hash) <> '' THEN 'email + password'
-    WHEN COALESCE(u.email, u.verified_email) IS NOT NULL THEN 'password setup needed'
+    WHEN COALESCE(u.email, u.verified_email) IS NOT NULL THEN 'email-only'
     WHEN u.verified_phone IS NOT NULL THEN 'legacy phone account'
     ELSE 'legacy account'
 END
@@ -247,7 +245,7 @@ def first_admin_setup_completed() -> bool:
         )
 
 
-def user_has_password_login(user: User | None) -> bool:
+def user_has_email_login(user: User | None) -> bool:
     if user is None or not (user.email or user.verified_email):
         return False
     with get_connection() as db:
@@ -255,25 +253,7 @@ def user_has_password_login(user: User | None) -> bool:
             """
             SELECT 1 FROM users
             WHERE id = ? AND deleted_at IS NULL
-              AND password_hash IS NOT NULL AND TRIM(password_hash) <> ''
-            """,
-            (int(user.id),),
-        ).fetchone()
-    return row is not None
-
-
-def user_has_verified_login(user: User | None) -> bool:
-    if user is None or not (user.email or user.verified_email):
-        return False
-    with get_connection() as db:
-        row = db.execute(
-            """
-            SELECT 1 FROM users
-            WHERE id = ? AND deleted_at IS NULL
-              AND (
-                (supabase_user_id IS NOT NULL AND TRIM(supabase_user_id) <> '')
-                OR (password_hash IS NOT NULL AND TRIM(password_hash) <> '')
-              )
+              AND COALESCE(email, verified_email) IS NOT NULL
             """,
             (int(user.id),),
         ).fetchone()
@@ -281,7 +261,7 @@ def user_has_verified_login(user: User | None) -> bool:
 
 
 def admin_setup_available_for_user(user: User | None) -> bool:
-    if not is_development_environment() or not user_has_verified_login(user):
+    if not is_development_environment() or not user_has_email_login(user):
         return False
     return not first_admin_setup_completed()
 
@@ -294,7 +274,7 @@ def admin_setup_account_label(user: User) -> str:
     return "GovGuideAI account"
 
 
-def promote_first_password_admin(user_id: int, confirmation: str) -> None:
+def promote_first_local_admin(user_id: int, confirmation: str) -> None:
     if str(confirmation or "").strip() != FIRST_ADMIN_CONFIRMATION:
         raise AdminSetupError(f'Type "{FIRST_ADMIN_CONFIRMATION}" to confirm.')
 
@@ -313,16 +293,12 @@ def promote_first_password_admin(user_id: int, confirmation: str) -> None:
             SELECT id FROM users
             WHERE id = ? AND deleted_at IS NULL
               AND COALESCE(email, verified_email) IS NOT NULL
-              AND (
-                (supabase_user_id IS NOT NULL AND TRIM(supabase_user_id) <> '')
-                OR (password_hash IS NOT NULL AND TRIM(password_hash) <> '')
-              )
             LIMIT 1
             """,
             (int(user_id),),
         ).fetchone()
         if user is None:
-            raise AdminSetupError("A verified logged-in account is required.")
+            raise AdminSetupError("An active local email account is required.")
 
         db.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (int(user_id),))
         db.execute(
@@ -365,7 +341,7 @@ def record_export_audit(
         )
 
 
-def promote_password_admin(email: str) -> tuple[int, bool]:
+def promote_email_admin(email: str) -> tuple[int, bool]:
     configured_email = os.getenv("ADMIN_EMAIL", "").strip()
     if not configured_email:
         raise AdminPromotionError("ADMIN_EMAIL is not configured on the server.")
@@ -383,10 +359,6 @@ def promote_password_admin(email: str) -> tuple[int, bool]:
             SELECT id, is_admin FROM users
             WHERE deleted_at IS NULL
               AND (
-                (supabase_user_id IS NOT NULL AND TRIM(supabase_user_id) <> '')
-                OR (password_hash IS NOT NULL AND TRIM(password_hash) <> '')
-              )
-              AND (
                 LOWER(COALESCE(email, '')) = ?
                 OR LOWER(COALESCE(verified_email, '')) = ?
               )
@@ -396,7 +368,7 @@ def promote_password_admin(email: str) -> tuple[int, bool]:
         ).fetchone()
         if row is None:
             raise AdminPromotionError(
-                "No active verified account with that email exists."
+                "No active local account with that email exists."
             )
         already_admin = bool(row["is_admin"])
         if not already_admin:

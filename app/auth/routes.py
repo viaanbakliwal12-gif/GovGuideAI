@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, redirect, render_template, request, session, url_for
 
 from app.auth.guest_service import end_guest_session, start_guest_session
 from app.auth.password_setup import (
@@ -13,15 +13,8 @@ from app.auth.services import (
     current_user,
     delete_user,
     establish_user_session,
-    find_or_create_supabase_user,
+    find_or_create_local_user,
     login_required,
-)
-from app.auth.supabase import (
-    SupabaseAuthenticationError,
-    SupabaseConfigurationError,
-    SupabaseNetworkError,
-    public_supabase_config,
-    verify_supabase_access_token,
 )
 from app.auth.validators import (
     IdentifierValidationError,
@@ -59,65 +52,42 @@ def login():
     return render_template(
         "login.html",
         message=request.args.get("message"),
-        next_url=_safe_local_next_url(request.args.get("next")),
+        error=None,
+        email="",
     )
 
 
-@auth_bp.get("/api/auth/config")
-def supabase_config():
-    status = 200
+@auth_bp.post("/login")
+def login_post():
+    email = request.form.get("email", "").strip()
     try:
-        url, anon_key = public_supabase_config()
-    except SupabaseConfigurationError:
-        url, anon_key, status = "", "", 503
-    response = jsonify(
-        {
-            "SUPABASE_URL": url,
-            "SUPABASE_ANON_KEY": anon_key,
-        }
-    )
-    response.status_code = status
-    response.headers["Cache-Control"] = "no-store"
-    return response
-
-
-@auth_bp.post("/api/auth/session")
-def create_supabase_session():
-    payload = request.get_json(silent=True) or {}
-    try:
-        identity = verify_supabase_access_token(payload.get("access_token", ""))
-        user = find_or_create_supabase_user(identity)
-    except SupabaseConfigurationError as error:
-        return jsonify({"error": str(error)}), 503
-    except SupabaseAuthenticationError as error:
-        return jsonify({"error": str(error)}), 401
-    except SupabaseNetworkError as error:
-        return jsonify({"error": str(error)}), 502
+        user, created = find_or_create_local_user(email)
     except AccountCreationError as error:
-        return jsonify({"error": error.message}), 409
+        return (
+            render_template(
+                "login.html",
+                message=None,
+                error=error.message,
+                email=email,
+            ),
+            400,
+        )
 
     selected_language = normalize_language(
-        payload.get("selected_language")
-        or session.get("selected_language")
-        or "en"
+        session.get("selected_language") or "en"
     )
     establish_user_session(user)
-    session["supabase_authenticated"] = True
     session["language_selected"] = True
     session["selected_language"] = selected_language
     profile = get_profile(user.id)
     if profile is not None and profile.preferred_language != selected_language:
         update_profile_language(user.id, selected_language)
 
-    requested_next = _safe_local_next_url(payload.get("next"))
-    next_url = (
+    return redirect(
         url_for("profiles.setup_profile")
-        if profile is None
-        else requested_next or url_for("index")
+        if created
+        else url_for("index")
     )
-    if next_url in {url_for("auth.login"), url_for("auth.signup")}:
-        next_url = url_for("index")
-    return jsonify({"ok": True, "next": next_url})
 
 
 @auth_bp.get("/account/set-password/<token>")
@@ -233,10 +203,3 @@ def delete_account():
         delete_user(user.id)
     session.clear()
     return redirect(url_for("auth.signup"))
-
-
-def _safe_local_next_url(value: str | None) -> str:
-    next_url = str(value or "").strip()
-    if not next_url or not next_url.startswith("/") or next_url.startswith("//"):
-        return ""
-    return next_url

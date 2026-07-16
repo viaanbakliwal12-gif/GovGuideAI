@@ -5,8 +5,8 @@
 1. A visitor opens `/`.
 2. If no browser language is selected, the frontend sends the user to `/language`.
 3. If neither logged in nor a guest, Flask redirects to `/login`.
-4. A visitor may continue as a guest or sign in with email and password.
-5. After password login, the app checks whether a profile exists.
+4. A visitor may continue as a guest or sign in with an email address.
+5. After email login, the app checks whether a profile exists.
 6. If no profile exists, the user completes `/profile/setup`.
 7. The protected chat page loads the saved profile.
 8. The browser sends `message`, `conversationId`, and `selectedLanguage` to `/api/chat`.
@@ -21,14 +21,14 @@ Conversation memory is isolated by user ID and conversation ID.
 For guests, the same memory is isolated by a server-validated anonymous session
 hash and conversation ID. It is process-local and expires with the guest session.
 
-## Password Authentication
+## Email-only Authentication
 
-1. Sign-up submits email, password, and confirmation to Flask.
-2. Flask normalizes the email, validates password strength and matching confirmation, and rejects duplicates.
-3. Werkzeug hashes the password with `scrypt`; plain text is discarded.
-4. Flask establishes the secure session and sends the new user to profile setup.
-5. Login compares the supplied password with the stored hash and returns one generic failure message on any mismatch.
-6. Returning users enter chat; incomplete users return to profile setup.
+1. Login submits one email address to Flask.
+2. Flask validates and normalizes the email.
+3. SQLite reuses the first active local row matching `email` or `verified_email`.
+4. If no row matches, SQLite creates a new passwordless local user.
+5. Flask establishes the secure session immediately.
+6. New users enter profile setup; returning users enter chat.
 
 ## Admin export
 

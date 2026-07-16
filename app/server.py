@@ -9,7 +9,7 @@ import re
 from uuid import uuid4
 
 # Import configuration before application services so .env is available when
-# any authentication or database module reads its settings.
+# any service or database module reads its settings.
 from app.config import application_environment, load_app_environment
 from pathlib import Path
 from dotenv import load_dotenv
@@ -79,7 +79,7 @@ def create_app() -> Flask:
     init_security(app)
     init_db()
     app.logger.info("Environment: %s", application_environment())
-    app.logger.info("Authentication: Supabase email OTP")
+    app.logger.info("Authentication: local email-only session")
     app.logger.info("Admin accounts: %d", count_admin_accounts())
 
     app.register_blueprint(auth_bp)
