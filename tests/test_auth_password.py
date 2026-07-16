@@ -168,7 +168,7 @@ class PasswordAuthenticationTests(AuthFlowTestCase):
             "/login",
             data={"email": "complete@example.com", "password": "SecurePass123"},
         )
-        self.assertEqual(complete.headers["Location"], "/")
+        self.assertEqual(complete.headers["Location"], "/chat")
 
     def test_existing_profile_is_unchanged_by_login_and_logout(self) -> None:
         self.create_completed_user("preserved@example.com")
@@ -181,7 +181,7 @@ class PasswordAuthenticationTests(AuthFlowTestCase):
             "/login",
             data={"email": "preserved@example.com", "password": "SecurePass123"},
         )
-        self.assertEqual(login.headers["Location"], "/")
+        self.assertEqual(login.headers["Location"], "/chat")
         logout = self.client.post("/logout")
         self.assertIn("/login", logout.headers["Location"])
         with get_connection() as db:
@@ -196,6 +196,24 @@ class PasswordAuthenticationTests(AuthFlowTestCase):
         self.assertNotIn("Email provider", combined)
         self.assertNotIn("SMS provider", combined)
         self.assertNotIn("Development OTP", combined)
+
+
+class WelcomePageTests(AuthFlowTestCase):
+    def test_root_shows_welcome_cover_before_language_selection(self) -> None:
+        response = self.client.get("/")
+        page = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Welcome to GovGuideAI", page)
+        self.assertIn("Your AI guide to Indian government schemes and services", page)
+        self.assertIn("Get simple, personalized guidance using trusted official sources.", page)
+        self.assertIn('href="/language"', page)
+
+    def test_chat_route_keeps_existing_access_guard(self) -> None:
+        response = self.client.get("/chat", follow_redirects=False)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/login")
 
 
 class LanguageSelectionTests(AuthFlowTestCase):

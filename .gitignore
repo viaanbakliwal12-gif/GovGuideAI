@@ -1,21 +1,107 @@
+# Secrets and credentials
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+.npmrc
+.pypirc
+.netrc
+credentials*.json
+*.credentials.json
+service-account*.json
+service_account*.json
+client_secret*.json
+secrets*.json
+*.secrets.json
+
+# Python environments and caches
 .venv/
 .venv-test/
+venv/
+env/
+ENV/
 .uv-python/
-
+.uv-cache/
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
-govguideai.sqlite3
-instance/*.db
+# Private databases and SQLite sidecar files
+instance/
+*.db
+*.db-*
+*.db.*
+*.sqlite
+*.sqlite-*
+*.sqlite.*
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.*
+
+# Private user-data and admin exports
 exports/
-*.csv
-user_export_*.json
-user_export_*.csv
+admin_exports/
+user_exports/
+temp_exports/
+tmp_exports/
+user_export*.csv
+user_export*.json
+user-export*.csv
+user-export*.json
+admin_export*.csv
+admin_export*.json
+admin-export*.csv
+admin-export*.json
+user_profile*.csv
+user_profile*.json
+profile_export*.csv
+profile_export*.json
+profile-export*.csv
+profile-export*.json
+password_export*.csv
+password_export*.json
+otp_export*.csv
+otp_export*.json
+session_export*.csv
+session_export*.json
+*.private.csv
+*.private.json
 
+# Sessions
+session/
+sessions/
+.flask_session/
+flask_session/
+*.session
+*.sess
+
+# Temporary files and logs
+.tmp/
+tmp/
+temp/
+logs/
+*.tmp
+*.temp
+*.log
+*.log.*
+
+# Audio generated or uploaded during testing
+uploads/
+recordings/
+generated_audio/
+audio_uploads/
+temp_audio/
+
+# Editors and operating-system files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-*.log
-.tmp/

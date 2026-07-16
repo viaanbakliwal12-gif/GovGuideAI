@@ -8,6 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class FrontendContractTests(unittest.TestCase):
+    def test_welcome_cover_uses_existing_brand_and_language_route(self) -> None:
+        welcome = (ROOT / "templates" / "welcome.html").read_text(encoding="utf-8")
+
+        self.assertIn('class="brand-mark"', welcome)
+        self.assertIn("Welcome to GovGuideAI", welcome)
+        self.assertIn("url_for('language_select')", welcome)
+        self.assertNotIn("<script", welcome)
+
     def test_authentication_pages_use_complete_password_forms(self) -> None:
         login = (ROOT / "templates" / "login.html").read_text(encoding="utf-8")
         signup = (ROOT / "templates" / "signup.html").read_text(encoding="utf-8")

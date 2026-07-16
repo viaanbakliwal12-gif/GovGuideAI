@@ -108,6 +108,10 @@ def create_app() -> Flask:
         return redirect(_safe_local_next_url(request.form.get("next")))
 
     @app.get("/")
+    def welcome():
+        return render_template("welcome.html")
+
+    @app.get("/chat")
     @assistant_access_required
     def index():
         user = current_user()

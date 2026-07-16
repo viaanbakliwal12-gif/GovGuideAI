@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="description" content="GovGuideAI provides simple, personalized guidance for Indian government schemes and services using trusted official sources.">
+    <title>Welcome to GovGuideAI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body class="welcome-page">
+    <main class="welcome-shell">
+      <section class="welcome-card" aria-labelledby="welcome-title">
+        <div class="welcome-accent" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+
+        <div class="brand-lockup welcome-brand" aria-label="GovGuideAI">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <span class="welcome-brand-name">GovGuideAI</span>
+        </div>
+
+        <div class="welcome-motif" aria-hidden="true"></div>
+
+        <div class="welcome-copy">
+          <p class="eyebrow">Official-source civic guidance</p>
+          <h1 id="welcome-title">Welcome to GovGuideAI</h1>
+          <p class="welcome-subtitle">Your AI guide to Indian government schemes and services</p>
+          <p class="welcome-support">Get simple, personalized guidance using trusted official sources.</p>
+        </div>
+
+        <a class="primary-button welcome-continue" href="{{ url_for('language_select') }}">Continue</a>
+      </section>
+    </main>
+  </body>
+</html>
