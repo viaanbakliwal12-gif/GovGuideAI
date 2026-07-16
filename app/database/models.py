@@ -15,30 +15,11 @@ class User:
     phone_verified_at: str | None = None
     is_admin: bool = False
     deleted_at: str | None = None
+    supabase_user_id: str | None = None
 
     @property
     def display_identifier(self) -> str:
         return self.email or self.verified_email or self.verified_phone or "GovGuideAI user"
-
-
-@dataclass(frozen=True)
-class OTPChallenge:
-    id: int
-    public_id: str
-    destination_hash: str
-    destination_encrypted: str
-    channel: str
-    purpose: str
-    otp_hash: str
-    expires_at: str
-    attempts: int
-    resend_count: int
-    used_at: str | None
-    created_at: str
-    last_sent_at: str
-    requested_ip_hash: str
-    delivery_method: str = "local"
-    provider_reference: str | None = None
 
 
 @dataclass(frozen=True)

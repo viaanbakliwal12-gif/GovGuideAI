@@ -136,7 +136,105 @@ def user_from_row(row) -> User:
         phone_verified_at=row["phone_verified_at"],
         is_admin=bool(row["is_admin"]),
         deleted_at=row["deleted_at"],
+        supabase_user_id=(
+            row["supabase_user_id"] if "supabase_user_id" in row.keys() else None
+        ),
     )
+
+
+def find_or_create_supabase_user(identity) -> User:
+    """Link a verified Supabase identity to the existing local profile record."""
+
+    now = utc_now()
+    confirmed_at = identity.email_confirmed_at or now
+    created_at = identity.created_at or now
+    try:
+        with get_connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT * FROM users WHERE supabase_user_id = ? LIMIT 1",
+                (identity.user_id,),
+            ).fetchone()
+            if row is not None and row["deleted_at"]:
+                raise AccountCreationError("email", "That GovGuideAI account is unavailable.")
+
+            if row is None:
+                matches = db.execute(
+                    """
+                    SELECT * FROM users
+                    WHERE deleted_at IS NULL
+                      AND (
+                        LOWER(COALESCE(email, '')) = ?
+                        OR LOWER(COALESCE(verified_email, '')) = ?
+                      )
+                    ORDER BY id
+                    """,
+                    (identity.email, identity.email),
+                ).fetchall()
+                if len(matches) > 1:
+                    raise AccountCreationError(
+                        "email", "This email is linked to conflicting local accounts."
+                    )
+                row = matches[0] if matches else None
+                if row is not None and row["supabase_user_id"] not in {
+                    None,
+                    "",
+                    identity.user_id,
+                }:
+                    raise AccountCreationError(
+                        "email", "This email is already linked to another Supabase account."
+                    )
+
+            if row is None:
+                db.execute(
+                    """
+                    INSERT INTO users (
+                        email, password_hash, created_date, last_login_date,
+                        verified_email, email_verified_at, created_at,
+                        last_login_at, supabase_user_id
+                    ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        identity.email,
+                        created_at,
+                        now,
+                        identity.email,
+                        confirmed_at,
+                        created_at,
+                        now,
+                        identity.user_id,
+                    ),
+                )
+                row = db.execute(
+                    "SELECT * FROM users WHERE id = last_insert_rowid()"
+                ).fetchone()
+            else:
+                db.execute(
+                    """
+                    UPDATE users
+                    SET email = ?, verified_email = ?, email_verified_at = ?,
+                        last_login_date = ?, last_login_at = ?, supabase_user_id = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        identity.email,
+                        identity.email,
+                        confirmed_at,
+                        now,
+                        now,
+                        identity.user_id,
+                        row["id"],
+                    ),
+                )
+                row = db.execute(
+                    "SELECT * FROM users WHERE id = ?", (row["id"],)
+                ).fetchone()
+    except sqlite3.IntegrityError:
+        raise AccountCreationError(
+            "email", "This Supabase account could not be linked safely."
+        ) from None
+
+    return user_from_row(row)
 
 
 def current_user() -> User | None:
@@ -159,7 +257,7 @@ def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
         if current_user() is None:
-            return redirect(url_for("auth.login"))
+            return redirect(url_for("auth.login", next=request.full_path.rstrip("?")))
         return view(*args, **kwargs)
 
     return wrapped_view
@@ -175,7 +273,7 @@ def assistant_access_required(view):
         if current_user() is None and current_guest_session() is None:
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Please sign in or continue as a guest."}), 401
-            return redirect(url_for("auth.login"))
+            return redirect(url_for("auth.login", next=request.full_path.rstrip("?")))
         return view(*args, **kwargs)
 
     return wrapped_view

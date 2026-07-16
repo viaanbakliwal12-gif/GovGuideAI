@@ -7,7 +7,7 @@
     <title>GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}">
+  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}" {% if session.get('supabase_authenticated') %}data-supabase-protected{% endif %}>
     {% set occupation_prompt_sets = {
       "student": [
         ("scholarshipPrompt", "Scholarships for me", "Which government scholarships should I check based on my profile?"),
@@ -94,7 +94,7 @@
             {% if show_admin_dashboard_link %}<a class="nav-link" href="{{ url_for('admin.dashboard') }}" data-i18n="adminDashboard">Admin Dashboard</a>{% endif %}
             {% if show_admin_setup_link %}<a class="nav-link nav-link-primary" href="{{ url_for('admin.setup') }}" data-i18n="administratorSetup">Administrator Setup</a>{% endif %}
             <a class="nav-link" href="{{ url_for('profiles.profile') }}" data-i18n="editProfile">Edit Profile</a>
-            <form method="post" action="{{ url_for('auth.logout') }}">
+            <form method="post" action="{{ url_for('auth.logout') }}" data-supabase-logout>
               <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
               <button class="nav-button" type="submit" data-i18n="logout">Logout</button>
             </form>
@@ -238,6 +238,10 @@
       window.govGuideIsGuest = {{ is_guest|tojson }};
     </script>
     <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-language-fix') }}" defer></script>
+    {% if not is_guest %}
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous" defer></script>
+    <script src="{{ url_for('static', filename='js/auth.js', v='20260716-supabase-otp') }}" defer></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/voice.js') }}" defer></script>

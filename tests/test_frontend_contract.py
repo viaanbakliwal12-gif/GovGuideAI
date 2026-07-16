@@ -16,20 +16,21 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("url_for('language_select')", welcome)
         self.assertNotIn("<script", welcome)
 
-    def test_authentication_pages_use_complete_password_forms(self) -> None:
+    def test_authentication_page_uses_supabase_email_otp(self) -> None:
         login = (ROOT / "templates" / "login.html").read_text(encoding="utf-8")
-        signup = (ROOT / "templates" / "signup.html").read_text(encoding="utf-8")
         guest = (ROOT / "templates" / "_guest_option.html").read_text(encoding="utf-8")
         script = (ROOT / "static" / "js" / "auth.js").read_text(encoding="utf-8")
 
-        self.assertIn('autocomplete="current-password"', login)
-        self.assertIn('name="confirm_password"', signup)
-        self.assertIn('autocomplete="new-password"', signup)
+        self.assertIn('@supabase/supabase-js@2', login)
+        self.assertIn('autocomplete="one-time-code"', login)
+        self.assertIn('maxlength="6"', login)
         self.assertIn("Continue as Guest", guest)
-        self.assertIn("data-confirm-password", script)
-        self.assertIn("Passwords do not match", script)
-        self.assertFalse((ROOT / "templates" / "verify_otp.html").exists())
-        self.assertFalse((ROOT / "templates" / "_auth_methods.html").exists())
+        self.assertIn("supabase.auth.signInWithOtp", script)
+        self.assertIn("shouldCreateUser: true", script)
+        self.assertIn("supabase.auth.verifyOtp", script)
+        self.assertIn('type: "email"', script)
+        self.assertIn("persistSession: true", script)
+        self.assertIn("supabase.auth.signOut()", script)
 
     def test_mobile_css_has_no_fixed_desktop_squeeze_contract(self) -> None:
         css = (ROOT / "static" / "css" / "styles.css").read_text(encoding="utf-8")
@@ -52,11 +53,14 @@ class FrontendContractTests(unittest.TestCase):
         required_keys = (
             "continueAsGuest",
             "reducedPersonalization",
-            "loginPasswordCopy",
-            "signupPasswordCopy",
-            "confirmPassword",
-            "passwordHelp",
-            "passwordMismatch",
+            "loginOtpCopy",
+            "sendOtp",
+            "verifyOtp",
+            "resendCode",
+            "changeEmail",
+            "otpInvalid",
+            "otpExpired",
+            "otpRateLimited",
             "createAccountToSave",
             "adminDashboard",
             "administratorSetup",
@@ -78,6 +82,7 @@ class FrontendContractTests(unittest.TestCase):
 
         profile_setup = (ROOT / "templates" / "profile_setup.html").read_text(encoding="utf-8")
         self.assertIn("url_for('auth.logout')", profile_setup)
+        self.assertIn("data-supabase-logout", profile_setup)
 
     def test_api_calls_send_csrf_tokens(self) -> None:
         for relative_path in (

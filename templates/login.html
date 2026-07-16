@@ -7,9 +7,15 @@
     <title>Login - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body data-require-language data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}" data-selected-language="{{ session.get('selected_language', '') }}" data-auth-page>
+  <body
+    data-require-language
+    data-language-selected="{{ 'true' if session.get('language_selected') else 'false' }}"
+    data-selected-language="{{ session.get('selected_language', '') }}"
+    data-auth-page
+    data-auth-next="{{ next_url }}"
+  >
     <main class="auth-shell">
-      <section class="auth-card" aria-labelledby="authTitle">
+      <section class="auth-card" aria-labelledby="authTitle" data-otp-login>
         <div class="brand-lockup">
           <span class="brand-mark" aria-hidden="true">G</span>
           <div>
@@ -17,34 +23,79 @@
             <h1>GovGuideAI</h1>
           </div>
         </div>
+
         <div class="auth-intro">
           <h2 id="authTitle" data-i18n="login">Login</h2>
-          <p class="privacy-copy" data-i18n="loginPasswordCopy">Use your email and password to access your saved profile.</p>
+          <p class="privacy-copy" data-i18n="loginOtpCopy">Enter your email and we will send a six-digit sign-in code.</p>
         </div>
 
         {% if message %}<p class="notice success" role="status">{{ message }}</p>{% endif %}
-        {% if error %}<p class="notice error" data-auth-error role="alert" {% if error_key %}data-i18n="{{ error_key }}"{% endif %}>{{ error }}</p>{% endif %}
+        <p class="notice auth-status" data-auth-status role="status" aria-live="polite" hidden></p>
 
-        <form class="stacked-form auth-password-form" method="post" action="{{ url_for('auth.login_post') }}" data-password-form>
-          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="selected_language" value="en">
+        <form class="stacked-form auth-otp-form" data-email-form novalidate>
           <label for="loginEmail">
             <span data-i18n="emailAddress">Email address</span>
-            <input id="loginEmail" name="email" type="email" required autocomplete="email" inputmode="email" value="{{ email }}" data-auth-field>
+            <input
+              id="loginEmail"
+              name="email"
+              type="email"
+              required
+              autocomplete="email"
+              inputmode="email"
+              maxlength="254"
+              data-auth-email
+              aria-describedby="emailHelp"
+            >
+            <span id="emailHelp" class="field-help" data-i18n="otpEmailHelp">We will only use this address to send your secure login code.</span>
           </label>
-          <label for="loginPassword">
-            <span data-i18n="password">Password</span>
-            <input id="loginPassword" name="password" type="password" required autocomplete="current-password" data-auth-field>
-          </label>
-          <button class="primary-button" type="submit" data-i18n="login">Login</button>
+          <button class="primary-button" type="submit" data-send-otp data-i18n="sendOtp">Send OTP</button>
         </form>
 
+        <section class="otp-step" data-otp-step aria-labelledby="otpStepTitle" hidden>
+          <div class="otp-step-heading">
+            <div>
+              <h3 id="otpStepTitle" data-i18n="enterOtp">Enter your code</h3>
+              <p class="field-help"><span data-i18n="codeSentTo">A six-digit code was sent to</span> <strong data-otp-email></strong>.</p>
+            </div>
+            <button class="text-button" type="button" data-change-email data-i18n="changeEmail">Change Email</button>
+          </div>
+
+          <form class="stacked-form auth-otp-form" data-verify-form novalidate>
+            <label for="loginOtp">
+              <span data-i18n="sixDigitOtp">Six-digit OTP</span>
+              <input
+                id="loginOtp"
+                name="otp"
+                class="otp-input"
+                type="text"
+                required
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                pattern="[0-9]{6}"
+                minlength="6"
+                maxlength="6"
+                aria-describedby="otpHelp"
+                data-otp-input
+              >
+              <span id="otpHelp" class="field-help" data-i18n="otpHelp">Enter the code from your Supabase email. You can paste all six digits.</span>
+            </label>
+            <button class="primary-button" type="submit" data-verify-otp data-i18n="verifyOtp">Verify OTP</button>
+          </form>
+
+          <div class="otp-secondary-actions">
+            <button class="text-button" type="button" data-resend-otp disabled>
+              <span data-resend-label data-i18n="resendCode">Resend Code</span>
+              <span data-resend-countdown aria-live="polite"></span>
+            </button>
+          </div>
+        </section>
+
         {% include "_guest_option.html" %}
-        <p class="auth-privacy" data-i18n="passwordAuthPrivacy">Your password is securely hashed. GovGuideAI never stores or displays the plain-text password.</p>
-        <p class="form-footer"><span data-i18n="newHere">New here?</span> <a href="{{ url_for('auth.signup') }}" data-i18n="createAccount">Create an account</a></p>
+        <p class="auth-privacy" data-i18n="otpAuthPrivacy">Supabase generates, emails, and verifies each code. GovGuideAI never generates or stores OTP codes.</p>
       </section>
     </main>
-    <script src="{{ url_for('static', filename='js/i18n.js', v='20260715-password-auth') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/auth.js', v='20260715-password-auth') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/i18n.js', v='20260716-supabase-otp') }}" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous" defer></script>
+    <script src="{{ url_for('static', filename='js/auth.js', v='20260716-supabase-otp') }}" defer></script>
   </body>
 </html>

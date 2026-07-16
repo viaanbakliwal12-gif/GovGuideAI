@@ -2,7 +2,6 @@ openai
 python-dotenv
 flask
 gunicorn
-cryptography
 email-validator
 phonenumbers
 pycountry

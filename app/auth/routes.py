@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, redirect, render_template, request, session, url_for
+from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
 from app.auth.guest_service import end_guest_session, start_guest_session
 from app.auth.password_setup import (
@@ -10,12 +10,18 @@ from app.auth.password_setup import (
 )
 from app.auth.services import (
     AccountCreationError,
-    authenticate_user,
-    create_user,
     current_user,
     delete_user,
     establish_user_session,
+    find_or_create_supabase_user,
     login_required,
+)
+from app.auth.supabase import (
+    SupabaseAuthenticationError,
+    SupabaseConfigurationError,
+    SupabaseNetworkError,
+    public_supabase_config,
+    verify_supabase_access_token,
 )
 from app.auth.validators import (
     IdentifierValidationError,
@@ -38,80 +44,80 @@ def protect_auth_responses(response):
 
 @auth_bp.get("/signup")
 def signup():
-    if current_user() is not None:
-        return redirect(url_for("index"))
-    _clear_legacy_auth_state()
-    return _render_auth_page("signup")
-
-
-@auth_bp.post("/signup")
-def signup_post():
-    email = request.form.get("email", "").strip()
-    password = request.form.get("password", "")
-    confirm_password = request.form.get("confirm_password", "")
-    errors: dict[str, str] = {}
-
-    try:
-        normalize_email(email)
-    except IdentifierValidationError:
-        errors["email"] = "Enter a valid email address."
-    password_error = password_validation_error(password)
-    if password_error:
-        errors["password"] = password_error
-    if password != confirm_password:
-        errors["confirm_password"] = "Passwords do not match."
-
-    if errors:
-        return _render_auth_page("signup", errors=errors, email=email), 400
-
-    try:
-        user = create_user(email, password)
-    except AccountCreationError as error:
-        return (
-            _render_auth_page(
-                "signup",
-                errors={error.field: error.message},
-                email=email,
-            ),
-            409 if error.field == "email" else 400,
-        )
-
-    establish_user_session(user)
-    _save_auth_language()
-    return redirect(url_for("profiles.setup_profile"))
+    return redirect(url_for("auth.login", next=request.args.get("next")))
 
 
 @auth_bp.get("/login")
 def login():
-    if current_user() is not None:
-        return redirect(url_for("index"))
-    _clear_legacy_auth_state()
-    return _render_auth_page("login", message=request.args.get("message"))
-
-
-@auth_bp.post("/login")
-def login_post():
-    email = request.form.get("email", "").strip()
-    user = authenticate_user(email, request.form.get("password", ""))
-    if user is None:
-        return (
-            _render_auth_page(
-                "login",
-                error="Incorrect email or password.",
-                error_key="incorrectPassword",
-                email=email,
-            ),
-            401,
+    user = current_user()
+    if user is not None:
+        return redirect(
+            url_for("profiles.setup_profile")
+            if get_profile(user.id) is None
+            else url_for("index")
         )
+    return render_template(
+        "login.html",
+        message=request.args.get("message"),
+        next_url=_safe_local_next_url(request.args.get("next")),
+    )
 
+
+@auth_bp.get("/api/auth/config")
+def supabase_config():
+    status = 200
+    try:
+        url, anon_key = public_supabase_config()
+    except SupabaseConfigurationError:
+        url, anon_key, status = "", "", 503
+    response = jsonify(
+        {
+            "SUPABASE_URL": url,
+            "SUPABASE_ANON_KEY": anon_key,
+        }
+    )
+    response.status_code = status
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@auth_bp.post("/api/auth/session")
+def create_supabase_session():
+    payload = request.get_json(silent=True) or {}
+    try:
+        identity = verify_supabase_access_token(payload.get("access_token", ""))
+        user = find_or_create_supabase_user(identity)
+    except SupabaseConfigurationError as error:
+        return jsonify({"error": str(error)}), 503
+    except SupabaseAuthenticationError as error:
+        return jsonify({"error": str(error)}), 401
+    except SupabaseNetworkError as error:
+        return jsonify({"error": str(error)}), 502
+    except AccountCreationError as error:
+        return jsonify({"error": error.message}), 409
+
+    selected_language = normalize_language(
+        payload.get("selected_language")
+        or session.get("selected_language")
+        or "en"
+    )
     establish_user_session(user)
-    selected_language = _save_auth_language()
+    session["supabase_authenticated"] = True
+    session["language_selected"] = True
+    session["selected_language"] = selected_language
     profile = get_profile(user.id)
-    if profile is None:
-        return redirect(url_for("profiles.setup_profile"))
-    if selected_language and profile.preferred_language != selected_language:
+    if profile is not None and profile.preferred_language != selected_language:
         update_profile_language(user.id, selected_language)
-    return redirect(url_for("index"))
+
+    requested_next = _safe_local_next_url(payload.get("next"))
+    next_url = (
+        url_for("profiles.setup_profile")
+        if profile is None
+        else requested_next or url_for("index")
+    )
+    if next_url in {url_for("auth.login"), url_for("auth.signup")}:
+        next_url = url_for("index")
+    return jsonify({"ok": True, "next": next_url})
 
 
 @auth_bp.get("/account/set-password/<token>")
@@ -229,32 +235,8 @@ def delete_account():
     return redirect(url_for("auth.signup"))
 
 
-def _render_auth_page(
-    purpose: str,
-    *,
-    error: str | None = None,
-    error_key: str | None = None,
-    errors: dict[str, str] | None = None,
-    message: str | None = None,
-    email: str = "",
-):
-    return render_template(
-        "signup.html" if purpose == "signup" else "login.html",
-        error=error,
-        error_key=error_key,
-        errors=errors or {},
-        message=message,
-        email=email,
-    )
-
-
-def _save_auth_language() -> str:
-    selected_language = normalize_language(request.form.get("selected_language"))
-    session["language_selected"] = True
-    session["selected_language"] = selected_language
-    return selected_language
-
-
-def _clear_legacy_auth_state() -> None:
-    session.pop("pending_otp", None)
-    session.pop("pending_auth_language", None)
+def _safe_local_next_url(value: str | None) -> str:
+    next_url = str(value or "").strip()
+    if not next_url or not next_url.startswith("/") or next_url.startswith("//"):
+        return ""
+    return next_url

@@ -75,7 +75,7 @@ def create_app() -> Flask:
     init_security(app)
     init_db()
     app.logger.info("Environment: %s", application_environment())
-    app.logger.info("Authentication: email and password")
+    app.logger.info("Authentication: Supabase email OTP")
     app.logger.info("Admin accounts: %d", count_admin_accounts())
 
     app.register_blueprint(auth_bp)

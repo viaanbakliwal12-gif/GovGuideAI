@@ -1,4 +1,5 @@
 document.querySelectorAll("[data-confirm], [data-confirm-key]").forEach((form) => {
+  if (form.matches("[data-supabase-delete-account]")) return;
   form.addEventListener("submit", (event) => {
     const key = form.getAttribute("data-confirm-key");
     const message = form.getAttribute("data-confirm") || (key && window.GovGuideI18n?.t(key));

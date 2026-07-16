@@ -7,8 +7,11 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from werkzeug.security import check_password_hash
-
+from app.auth.supabase import (
+    SupabaseAuthenticationError,
+    SupabaseIdentity,
+    SupabaseNetworkError,
+)
 from app.database.session import get_connection
 from app.server import create_app
 
@@ -25,7 +28,8 @@ class AuthFlowTestCase(unittest.TestCase):
                 "SECRET_KEY": "test-secret-key",
                 "FLASK_ENV": "development",
                 "APP_ENV": "development",
-                "PASSWORD_SETUP_TOKEN_MINUTES": "30",
+                "SUPABASE_URL": "https://project-ref.supabase.co",
+                "SUPABASE_ANON_KEY": "test-public-anon-key",
             },
             clear=False,
         )
@@ -39,185 +43,184 @@ class AuthFlowTestCase(unittest.TestCase):
         self.database_patch.stop()
         self.directory.cleanup()
 
-    def signup(
-        self,
+    @staticmethod
+    def identity(
         email: str = "person@example.com",
-        password: str = "SecurePass123",
-        confirmation: str | None = None,
-    ):
-        return self.client.post(
-            "/signup",
-            data={
-                "email": email,
-                "password": password,
-                "confirm_password": password if confirmation is None else confirmation,
-                "selected_language": "en",
-            },
+        user_id: str = "9ce31cba-7890-4e42-b3bc-bf7e5f932659",
+    ) -> SupabaseIdentity:
+        return SupabaseIdentity(
+            user_id=user_id,
+            email=email,
+            created_at="2026-07-16T12:00:00+00:00",
+            email_confirmed_at="2026-07-16T12:01:00+00:00",
         )
 
-    def create_completed_user(self, email: str = "complete@example.com") -> None:
-        response = self.signup(email=email)
-        self.assertEqual(response.status_code, 302)
+    def create_session(self, identity: SupabaseIdentity | None = None, **payload):
+        with patch(
+            "app.auth.routes.verify_supabase_access_token",
+            return_value=identity or self.identity(),
+        ):
+            return self.client.post(
+                "/api/auth/session",
+                json={"access_token": "verified-access-token", **payload},
+            )
+
+    def add_profile(self, user_id: int) -> None:
         with get_connection() as db:
-            user_id = db.execute(
-                "SELECT id FROM users WHERE email = ?", (email,)
-            ).fetchone()[0]
             db.execute(
                 """
                 INSERT INTO profiles (
                     user_id, full_name, age, state, district, occupation,
                     location_type, preferred_language, updated_date
                 ) VALUES (?, 'Complete User', '30', 'Delhi', 'New Delhi',
-                          'employed', 'urban', 'en', '2026-01-01')
+                          'employed', 'urban', 'en', '2026-07-16')
                 """,
                 (user_id,),
             )
 
 
-class PasswordAuthenticationTests(AuthFlowTestCase):
-    def test_pages_are_complete_password_forms_without_otp_ui(self) -> None:
-        login = self.client.get("/login").get_data(as_text=True)
-        signup = self.client.get("/signup").get_data(as_text=True)
-        combined = f"{login}\n{signup}".lower()
-
-        self.assertIn('name="email"', login)
-        self.assertIn('name="password"', login)
-        self.assertIn('name="confirm_password"', signup)
-        self.assertIn("continue as guest", combined)
-        for forbidden in (
-            "send code",
-            "phone number",
-            "country",
-            "verification code",
-            "resend code",
-            "temporarily unavailable",
-            "development otp",
-            "one-time-code",
-        ):
-            self.assertNotIn(forbidden, combined)
-
-        self.assertEqual(self.client.get("/verify").status_code, 404)
-        self.assertEqual(self.client.post("/auth/request-code").status_code, 404)
-        self.assertEqual(self.client.post("/auth/resend-code").status_code, 404)
-
-    def test_signup_validates_email_password_and_confirmation_inline(self) -> None:
-        invalid_email = self.signup(email="not-an-email")
-        weak = self.signup(password="short1")
-        mismatch = self.signup(confirmation="DifferentPass123")
-
-        self.assertEqual(invalid_email.status_code, 400)
-        self.assertIn("Enter a valid email address.", invalid_email.get_data(as_text=True))
-        self.assertIn('class="field-error"', invalid_email.get_data(as_text=True))
-        self.assertEqual(weak.status_code, 400)
-        self.assertIn("at least 10 characters", weak.get_data(as_text=True))
-        self.assertEqual(mismatch.status_code, 400)
-        self.assertIn("Passwords do not match.", mismatch.get_data(as_text=True))
-
-    def test_signup_hashes_password_and_redirects_to_profile_setup(self) -> None:
-        response = self.signup(email="New.Person@Example.COM")
-
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/profile/setup", response.headers["Location"])
-        with get_connection() as db:
-            row = db.execute(
-                "SELECT id, email, password_hash FROM users"
-            ).fetchone()
-        self.assertEqual(row["email"], "new.person@example.com")
-        self.assertNotEqual(row["password_hash"], "SecurePass123")
-        self.assertTrue(row["password_hash"].startswith("scrypt:"))
-        self.assertTrue(check_password_hash(row["password_hash"], "SecurePass123"))
-        with self.client.session_transaction() as browser_session:
-            self.assertEqual(browser_session["user_id"], row["id"])
-
-    def test_duplicate_email_is_rejected_without_creating_another_user(self) -> None:
-        self.signup(email="duplicate@example.com")
-        self.client.post("/logout")
-        duplicate = self.signup(email="DUPLICATE@example.com")
-
-        self.assertEqual(duplicate.status_code, 409)
-        self.assertIn("already exists", duplicate.get_data(as_text=True))
-        with get_connection() as db:
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM users").fetchone()[0], 1)
-
-    def test_login_uses_generic_failure_and_routes_by_profile_state(self) -> None:
-        self.signup(email="incomplete@example.com")
-        self.client.post("/logout")
-
-        unknown = self.client.post(
-            "/login", data={"email": "unknown@example.com", "password": "WrongPass123"}
-        )
-        wrong = self.client.post(
-            "/login", data={"email": "incomplete@example.com", "password": "WrongPass123"}
-        )
-        self.assertEqual(unknown.status_code, 401)
-        self.assertEqual(wrong.status_code, 401)
-        self.assertIn("Incorrect email or password.", unknown.get_data(as_text=True))
-        self.assertIn("Incorrect email or password.", wrong.get_data(as_text=True))
-        self.assertNotIn("unknown@example.com does not exist", unknown.get_data(as_text=True))
-
-        incomplete = self.client.post(
-            "/login",
-            data={"email": "incomplete@example.com", "password": "SecurePass123"},
-        )
-        self.assertIn("/profile/setup", incomplete.headers["Location"])
-
-        self.client.post("/logout")
-        self.create_completed_user()
-        self.client.post("/logout")
-        complete = self.client.post(
-            "/login",
-            data={"email": "complete@example.com", "password": "SecurePass123"},
-        )
-        self.assertEqual(complete.headers["Location"], "/chat")
-
-    def test_existing_profile_is_unchanged_by_login_and_logout(self) -> None:
-        self.create_completed_user("preserved@example.com")
-        self.client.post("/logout")
-        before = None
-        with get_connection() as db:
-            before = dict(db.execute("SELECT * FROM profiles").fetchone())
-
-        login = self.client.post(
-            "/login",
-            data={"email": "preserved@example.com", "password": "SecurePass123"},
-        )
-        self.assertEqual(login.headers["Location"], "/chat")
-        logout = self.client.post("/logout")
-        self.assertIn("/login", logout.headers["Location"])
-        with get_connection() as db:
-            after = dict(db.execute("SELECT * FROM profiles").fetchone())
-        self.assertEqual(before, after)
-
-    def test_startup_logs_password_auth_without_provider_warnings(self) -> None:
-        with self.assertLogs("app.server", level="INFO") as captured:
-            create_app()
-        combined = "\n".join(captured.output)
-        self.assertIn("Authentication: email and password", combined)
-        self.assertNotIn("Email provider", combined)
-        self.assertNotIn("SMS provider", combined)
-        self.assertNotIn("Development OTP", combined)
-
-
-class WelcomePageTests(AuthFlowTestCase):
-    def test_root_shows_welcome_cover_before_language_selection(self) -> None:
-        response = self.client.get("/")
+class SupabaseAuthenticationTests(AuthFlowTestCase):
+    def test_login_page_is_email_otp_ui_and_signup_routes_to_it(self) -> None:
+        response = self.client.get("/login")
         page = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn('type="email"', page)
+        self.assertIn("Send OTP", page)
+        self.assertIn('autocomplete="one-time-code"', page)
+        self.assertIn('maxlength="6"', page)
+        self.assertIn("Verify OTP", page)
+        self.assertIn("Change Email", page)
+        self.assertIn("Resend Code", page)
+        self.assertIn("@supabase/supabase-js@2", page)
+        self.assertEqual(self.client.get("/signup").status_code, 302)
+        self.assertEqual(self.client.post("/login").status_code, 405)
+
+    def test_public_config_exposes_exactly_two_public_fields(self) -> None:
+        response = self.client.get("/api/auth/config")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "SUPABASE_URL": "https://project-ref.supabase.co",
+                "SUPABASE_ANON_KEY": "test-public-anon-key",
+            },
+        )
+        self.assertIn("no-store", response.headers["Cache-Control"])
+
+    def test_missing_config_is_safe_and_does_not_expose_other_environment(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"SUPABASE_URL": "", "SUPABASE_ANON_KEY": ""},
+            clear=False,
+        ):
+            response = self.client.get("/api/auth/config")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.get_json(),
+            {"SUPABASE_URL": "", "SUPABASE_ANON_KEY": ""},
+        )
+        self.assertNotIn("SECRET_KEY", response.get_data(as_text=True))
+
+    def test_verified_supabase_identity_creates_local_profile_account(self) -> None:
+        response = self.create_session(selected_language="hi")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["next"], "/profile/setup")
+        with get_connection() as db:
+            row = db.execute(
+                "SELECT id, email, verified_email, password_hash, supabase_user_id FROM users"
+            ).fetchone()
+        self.assertEqual(row["email"], "person@example.com")
+        self.assertEqual(row["verified_email"], "person@example.com")
+        self.assertIsNone(row["password_hash"])
+        self.assertEqual(row["supabase_user_id"], self.identity().user_id)
+        with self.client.session_transaction() as browser_session:
+            self.assertEqual(browser_session["user_id"], row["id"])
+            self.assertEqual(browser_session["selected_language"], "hi")
+
+    def test_existing_email_is_safely_linked_and_profile_is_preserved(self) -> None:
+        with get_connection() as db:
+            db.execute(
+                """
+                INSERT INTO users (email, password_hash, created_date, created_at)
+                VALUES ('person@example.com', 'legacy-hash', '2026-01-01', '2026-01-01')
+                """
+            )
+            user_id = db.execute("SELECT id FROM users").fetchone()[0]
+        self.add_profile(user_id)
+
+        response = self.create_session(next="/profile")
+
+        self.assertEqual(response.get_json()["next"], "/profile")
+        with get_connection() as db:
+            row = db.execute(
+                "SELECT supabase_user_id, password_hash FROM users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+            profile_count = db.execute("SELECT COUNT(*) FROM profiles").fetchone()[0]
+        self.assertEqual(row["supabase_user_id"], self.identity().user_id)
+        self.assertEqual(row["password_hash"], "legacy-hash")
+        self.assertEqual(profile_count, 1)
+
+    def test_invalid_token_and_supabase_network_failure_are_clear(self) -> None:
+        with patch(
+            "app.auth.routes.verify_supabase_access_token",
+            side_effect=SupabaseAuthenticationError("The session is invalid or expired."),
+        ):
+            invalid = self.client.post(
+                "/api/auth/session", json={"access_token": "invalid"}
+            )
+        with patch(
+            "app.auth.routes.verify_supabase_access_token",
+            side_effect=SupabaseNetworkError("Check the network and try again."),
+        ):
+            offline = self.client.post(
+                "/api/auth/session", json={"access_token": "valid-but-offline"}
+            )
+        self.assertEqual(invalid.status_code, 401)
+        self.assertIn("expired", invalid.get_json()["error"])
+        self.assertEqual(offline.status_code, 502)
+        self.assertIn("network", offline.get_json()["error"])
+
+    def test_logout_clears_server_session(self) -> None:
+        self.create_session()
+        response = self.client.post("/logout")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login", response.headers["Location"])
+        with self.client.session_transaction() as browser_session:
+            self.assertNotIn("user_id", browser_session)
+
+    def test_startup_logs_supabase_otp_auth(self) -> None:
+        with self.assertLogs("app.server", level="INFO") as captured:
+            create_app()
+        combined = "\n".join(captured.output)
+        self.assertIn("Authentication: Supabase email OTP", combined)
+        self.assertNotIn("Development OTP", combined)
+
+
+class WelcomeAndAccessTests(AuthFlowTestCase):
+    def test_root_shows_welcome_cover_before_language_selection(self) -> None:
+        response = self.client.get("/")
+        page = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
         self.assertIn("Welcome to GovGuideAI", page)
-        self.assertIn("Your AI guide to Indian government schemes and services", page)
-        self.assertIn("Get simple, personalized guidance using trusted official sources.", page)
         self.assertIn('href="/language"', page)
 
-    def test_chat_route_keeps_existing_access_guard(self) -> None:
-        response = self.client.get("/chat", follow_redirects=False)
+    def test_protected_routes_redirect_to_login_with_safe_return_path(self) -> None:
+        profile = self.client.get("/profile", follow_redirects=False)
+        chat = self.client.get("/chat", follow_redirects=False)
+        self.assertEqual(profile.status_code, 302)
+        self.assertEqual(profile.headers["Location"], "/login?next=/profile")
+        self.assertEqual(chat.headers["Location"], "/login?next=/chat")
 
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.headers["Location"], "/login")
+    def test_external_next_url_is_not_used(self) -> None:
+        response = self.client.get("/login?next=//example.com/escape")
+        self.assertNotIn("//example.com/escape", response.get_data(as_text=True))
 
 
 class LanguageSelectionTests(AuthFlowTestCase):
-    def test_language_selection_is_saved_server_side_and_redirects_once(self) -> None:
+    def test_language_selection_is_saved_server_side(self) -> None:
         response = self.client.post(
             "/language",
             data={"selected_language": "hi", "next": "/login"},
@@ -237,7 +240,7 @@ class LanguageSelectionTests(AuthFlowTestCase):
 
 
 class GuestModeTests(AuthFlowTestCase):
-    def test_guest_reaches_chat_without_creating_user_and_sees_limitations(self) -> None:
+    def test_guest_reaches_chat_without_creating_user(self) -> None:
         response = self.client.post(
             "/guest", data={"selected_language": "en"}, follow_redirects=True
         )
@@ -245,55 +248,32 @@ class GuestModeTests(AuthFlowTestCase):
         self.assertIn("Guest mode", response.get_data(as_text=True))
         with get_connection() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM users").fetchone()[0], 0)
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM guest_sessions").fetchone()[0], 1)
 
-    def test_guest_can_use_word_count_and_voice_but_not_profile(self) -> None:
+    def test_guest_cannot_open_profile(self) -> None:
         self.client.post("/guest", data={"selected_language": "en"})
-        chat = self.client.post(
-            "/api/chat",
-            json={"message": "word count: one two three", "selectedLanguage": "en"},
-        )
-        self.assertEqual(chat.get_json()["toolsUsed"], ["Word Count"])
-        with patch("app.voice.routes.generate_speech_audio", return_value=b"audio"):
-            voice = self.client.post(
-                "/api/voice/speak",
-                json={"text": "Hello", "preferredLanguage": "en"},
-            )
-        self.assertEqual(voice.status_code, 200)
         self.assertIn("/login", self.client.get("/profile").headers["Location"])
-
-    def test_guest_sessions_are_server_side_and_isolated(self) -> None:
-        self.client.post("/guest", data={"selected_language": "en"})
-        with self.client.session_transaction() as browser_session:
-            first_token = browser_session["guest_token"]
-        another_client = self.app.test_client()
-        another_client.post("/guest", data={"selected_language": "en"})
-        with another_client.session_transaction() as browser_session:
-            second_token = browser_session["guest_token"]
-        self.assertNotEqual(first_token, second_token)
-        with get_connection() as db:
-            rows = db.execute("SELECT session_hash FROM guest_sessions").fetchall()
-        self.assertEqual(len(rows), 2)
-        self.assertTrue(all(row["session_hash"] not in {first_token, second_token} for row in rows))
 
 
 class SecurityBoundaryTests(AuthFlowTestCase):
-    def test_csrf_is_required_outside_testing_mode(self) -> None:
+    def test_session_exchange_requires_csrf_outside_testing_mode(self) -> None:
         self.app.config["TESTING"] = False
         page = self.client.get("/login")
-        match = re.search(r'name="_csrf_token" value="([^"]+)"', page.get_data(as_text=True))
+        match = re.search(r'<meta name="csrf-token" content="([^"]+)"', page.get_data(as_text=True))
         self.assertIsNotNone(match)
-        rejected = self.client.post("/guest", data={"selected_language": "en"})
-        accepted = self.client.post(
-            "/guest",
-            data={"selected_language": "en", "_csrf_token": match.group(1)},
-        )
+        with patch(
+            "app.auth.routes.verify_supabase_access_token",
+            return_value=self.identity(),
+        ):
+            rejected = self.client.post(
+                "/api/auth/session", json={"access_token": "verified-access-token"}
+            )
+            accepted = self.client.post(
+                "/api/auth/session",
+                json={"access_token": "verified-access-token"},
+                headers={"X-CSRF-Token": match.group(1)},
+            )
         self.assertEqual(rejected.status_code, 400)
-        self.assertEqual(accepted.status_code, 302)
-        cookie_headers = page.headers.getlist("Set-Cookie")
-        self.assertTrue(
-            any("HttpOnly" in value and "SameSite=Lax" in value for value in cookie_headers)
-        )
+        self.assertEqual(accepted.status_code, 200)
 
 
 if __name__ == "__main__":

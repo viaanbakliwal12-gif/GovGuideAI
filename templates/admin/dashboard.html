@@ -7,7 +7,7 @@
     <title>Admin profiles - GovGuideAI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
-  <body class="admin-body">
+  <body class="admin-body" {% if session.get('supabase_authenticated') %}data-supabase-protected{% endif %}>
     <header class="site-header admin-header">
       <div class="brand-lockup">
         <span class="brand-mark" aria-hidden="true">G</span>
@@ -19,7 +19,7 @@
       <nav class="admin-nav" aria-label="Admin account">
         <span class="official-badge">Admin only</span>
         <a class="nav-link" href="{{ url_for('index') }}">Back to chat</a>
-        <form method="post" action="{{ url_for('auth.logout') }}">
+        <form method="post" action="{{ url_for('auth.logout') }}" data-supabase-logout>
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="nav-button" type="submit">Logout</button>
         </form>
@@ -196,6 +196,8 @@
 
       <p class="admin-privacy-note">Exports are generated only for this authorized request, are not stored in <code>static/</code>, and are recorded only by admin ID, timestamp, format, and record count.</p>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous" defer></script>
+    <script src="{{ url_for('static', filename='js/auth.js', v='20260716-supabase-otp') }}" defer></script>
     <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
   </body>
 </html>

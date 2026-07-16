@@ -24,6 +24,14 @@ def apply_migrations(db: sqlite3.Connection) -> None:
     _create_or_upgrade_users(db)
     _ensure_column(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(db, "users", "deleted_at", "TEXT")
+    _ensure_column(db, "users", "supabase_user_id", "TEXT")
+    db.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_supabase_user_id
+        ON users(supabase_user_id)
+        WHERE supabase_user_id IS NOT NULL
+        """
+    )
     _create_profiles(db)
     _ensure_column(db, "profiles", "occupation_custom", "TEXT")
     _migrate_legacy_occupation_values(db)
@@ -42,6 +50,7 @@ def apply_migrations(db: sqlite3.Connection) -> None:
     _record_migration(db, 2, "admin_profiles_and_provider_tracking")
     _record_migration(db, 3, "website_first_admin_setup")
     _record_migration(db, 4, "password_auth_and_legacy_account_setup")
+    _record_migration(db, 5, "supabase_email_otp_auth")
 
 
 def _create_or_upgrade_users(db: sqlite3.Connection) -> None:
@@ -121,6 +130,7 @@ def _create_users_table(db: sqlite3.Connection, table_name: str) -> None:
             last_login_at TEXT,
             is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
             deleted_at TEXT,
+            supabase_user_id TEXT,
             CHECK (email IS NOT NULL OR verified_email IS NOT NULL OR verified_phone IS NOT NULL)
         )
         """
