@@ -1,8 +1,3 @@
-from pathlib import Path
-from dotenv import load_dotenv
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(PROJECT_ROOT / ".env")
 from __future__ import annotations
 
 from datetime import timedelta
@@ -16,7 +11,11 @@ from uuid import uuid4
 # Import configuration before application services so .env is available when
 # any authentication or database module reads its settings.
 from app.config import application_environment, load_app_environment
+from pathlib import Path
+from dotenv import load_dotenv
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 load_app_environment()
 
 from flask import (
